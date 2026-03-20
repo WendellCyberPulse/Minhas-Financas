@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         await calcularAcertos();
         await carregarBancosNoSelect();
         await carregarCartoesNoSelect();
-        carregarPessoasNoSelect();
+        //carregarPessoasNoSelect();
     }
 
     // ===== CADASTRO DESPESA FAMÍLIA =====
