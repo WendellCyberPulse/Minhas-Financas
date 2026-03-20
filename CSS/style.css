@@ -938,3 +938,21 @@ footer::before {
         opacity: 1;
     }
 }
+
+.btn-pagar-fatura {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s;
+    margin-right: 5px;
+}
+
+.btn-pagar-fatura:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}

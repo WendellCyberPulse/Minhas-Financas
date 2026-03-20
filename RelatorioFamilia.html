@@ -9,7 +9,21 @@
     
     <!-- Chart.js para gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Meta tags para iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Minhas Finanças">
+
+    <!-- Ícones para iOS -->
+    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+
+    <!-- Meta tags gerais -->
+    <meta name="theme-color" content="#af4c4c">
+        
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
     
     <style>
@@ -47,6 +61,7 @@
         }
     </style>
 </head>
+
 <body>
     <header>
         <h1>👥 Relatório da Família</h1>
@@ -420,6 +435,18 @@
             atualizarRelatorio();
             document.getElementById('numeroPessoas').addEventListener('change', atualizarRelatorio);
         });
+    </script>
+    <!-- Registro do Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').then(function(registration) {
+        console.log('✅ Service Worker registrado com sucesso:', registration.scope);
+        }, function(err) {
+        console.log('❌ Erro ao registrar Service Worker:', err);
+        });
+    });
+    }
     </script>
 </body>
 </html>

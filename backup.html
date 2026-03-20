@@ -6,7 +6,21 @@
     <title>Backup - Sistema Financeiro</title>
     <link rel="stylesheet" href="./CSS/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💾</text></svg>">
-</head>
+
+        <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Meta tags para iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Minhas Finanças">
+
+    <!-- Ícones para iOS -->
+    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+
+    <!-- Meta tags gerais -->
+    <meta name="theme-color" content="#af4c4c">
+    </head>
 <body>
     <header>
         <h1>💾 Backup do Sistema</h1>
@@ -272,6 +286,18 @@ Nenhum backup carregado
             atualizarResumo();
             atualizarInfoBackup();
         });
+    </script>
+    <!-- Registro do Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').then(function(registration) {
+        console.log('✅ Service Worker registrado com sucesso:', registration.scope);
+        }, function(err) {
+        console.log('❌ Erro ao registrar Service Worker:', err);
+        });
+    });
+    }
     </script>
 </body>
 </html>
