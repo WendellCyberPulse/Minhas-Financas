@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Despesas</title>
+     <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💸</text></svg>">
+
+</head>
+<body>
+    <header>
+        <h1>📝 Minhas Despesas</h1>
+    </header>
+
+     <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+       <!-- RESUMO DAS DESPESAS DO MÊS -->
+        <section>
+            <h2>📊 Resumo do Mês</h2>
+            <div class="cards-container">
+                <div class="card"> 
+                    <h3>💰 Total de Despesas</h3>
+                    <p id="totalDespesas">R$ 0,00</p>
+                    <small>Todas as despesas do mês</small>
+                </div>
+
+                <div class="card"> 
+                    <h3>👥 Despesas da Família</h3>
+                    <p id="totalFamilia">R$ 0,00</p>
+                    <small>Contas compartilhadas</small>
+                </div>
+
+                <div class="card">
+                    <h3>👤 Despesas Individuais</h3>
+                    <p id="totalIndividual">R$ 0,00</p>
+                    <small>Gastos pessoais</small>
+                </div>
+            </div>
+        </section>
+
+    <!-- SEÇÃO DE CADASTRO - FAMÍLIA E INDIVIDUAL -->
+    <section>
+        <h2>➕ Cadastrar nova despesa</h2>
+
+        <div class="forms-grid">
+        
+            <!-- Família -->
+          <div class="form-container">
+            <h3>🏠 Despesa da Família</h3>
+            <form id="formFamilia">
+                <div>
+                    <label>Descrição:</label><br>
+                    <input type="text" id="descFamilia" placeholder="Ex: Conta de luz, Netflix..." required>
+                </div>
+                <div>
+                    <label>Valor total (R$):</label><br>
+                    <input type="number" id="valorFamilia" step="0.01" placeholder="0,00" required>
+                </div>
+                <div>
+                    <label>Data:</label><br>
+                    <input type="date" id="dataFamilia" required>  <!-- NOVO -->
+                </div>
+                <div>
+                    <label>Dividir entre:</label><br>
+                    <select id="divisaoFamilia">
+                        <option value="2">2 pessoas</option>
+                        <option value="3" selected>3 pessoas</option>
+                        <option value="4">4 pessoas</option>
+                    </select>
+                </div>
+
+                <!-- QUEM PAGOU? (NOVO) -->
+                <div>
+                    <label>Quem pagou?</label><br>
+                    <select id="pagadorFamilia" class="select-pagador" required>
+                        <option value="">Selecione...</option>
+                        <option value="João">João</option>
+                        <option value="Maria">Maria</option>
+                        <option value="Você">Você</option>
+                    </select>
+                </div>
+
+                <!-- FORMA DE PAGAMENTO -->
+                <div>
+                    <label>Forma de pagamento:</label><br>
+                    <select id="pagamentoFamilia">
+                        <option value="dinheiro">💵 Dinheiro</option>
+                        <option value="debito">💳 Débito/PIX</option>
+                        <option value="credito">📱 Crédito</option>
+                    </select>
+                </div>
+
+                <!-- ONDE VAI DESCONTAR (DÉBITO/PIX) -->
+                <div id="containerBancoFamilia" style="display: none;">
+                    <label>Selecionar conta para débito:</label><br>
+                    <select id="bancoFamilia" class="select-banco">
+                        <option value="">Selecione um banco...</option>
+                    </select>
+                </div>
+
+                <!-- ONDE VAI DESCONTAR (CRÉDITO) -->
+                <div id="containerCartaoFamilia" style="display: none;">
+                    <label>Selecionar cartão de crédito:</label><br>
+                    <select id="cartaoFamilia" class="select-cartao">
+                        <option value="">Selecione um cartão...</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button type="submit" id="btnFamilia">✅ Cadastrar despesa da família</button>
+                    <button type="button" onclick="cancelarEdicaoDespesa('familia')" class="btn-cancelar">❌ Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+            <!-- Individual -->
+            <div class="form-container">
+                <h3>👤 Despesa Individual</h3>
+                <form id="formIndividual">
+                    <div>
+                        <label>Descrição:</label><br>
+                        <input type="text" id="descIndividual" placeholder="Ex: Academia, Ifood..." required>
+                    </div>
+                    <div>
+                        <label>Valor (R$):</label><br>
+                        <input type="number" id="valorIndividual" step="0.01" placeholder="0,00" required>
+                    </div>
+                    <div>
+                        <label>Data:</label><br>
+                        <input type="date" id="dataIndividual" required>  <!-- NOVO -->
+                    </div>
+                    <div>
+                        <label>Categoria:</label><br>
+                        <select id="categoriaIndividual">
+                            <option value="alimentacao">Alimentação</option>
+                            <option value="saude">Saúde</option>
+                            <option value="lazer">Lazer</option>
+                            <option value="transporte">Transporte</option>
+                        </select>
+                    </div>
+
+                    <!-- FORMA DE PAGAMENTO -->
+                    <div>
+                        <label>Forma de pagamento:</label><br>
+                        <select id="pagamentoIndividual">
+                            <option value="dinheiro">💵 Dinheiro</option>
+                            <option value="debito">💳 Débito/PIX</option>
+                            <option value="credito">📱 Crédito</option>
+                        </select>
+                    </div>
+
+                    <!-- ONDE VAI DESCONTAR (DÉBITO/PIX) -->
+                    <div id="containerBancoIndividual" style="display: none;">
+                        <label>Selecionar conta para débito:</label><br>
+                        <select id="bancoIndividual" class="select-banco">
+                            <option value="">Selecione um banco...</option>
+                        </select>
+                    </div>
+
+                    <!-- ONDE VAI DESCONTAR (CRÉDITO) -->
+                    <div id="containerCartaoIndividual" style="display: none;">
+                        <label>Selecionar cartão de crédito:</label><br>
+                        <select id="cartaoIndividual" class="select-cartao">
+                            <option value="">Selecione um cartão...</option>
+                        </select>
+                    </div>
+
+                   
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                         <button type="submit" id="btnIndividual">✅ Cadastrar despesa individual</button>
+                        <button type="button" onclick="cancelarEdicaoDespesa('individual')" class="btn-cancelar">❌ Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+        <!-- LISTA DE DESPESAS DO MÊS -->
+    <section>
+        <h2>📋 Despesas deste mês</h2>
+        
+        <!-- Cabeçalho -->
+        <div class="lista-header" >
+            <span>Data</span>
+            <span>Descrição</span>
+            <span>Tipo</span>
+            <span>Valor</span>
+            <span>Status</span>
+            <span>Ações</span>
+        </div>
+
+        <!-- Exemplo 1: Família -->
+        <div id="listaDespesas">
+            <!-- class= lista-item inserido pelo js-->
+           
+        </div>
+
+    </section>
+    <!-- SEÇÃO DE ACERTOS -->
+    <section id="acertosContainer">
+        <h2>🤝 Acertos do Mês</h2>
+        <!-- Será preenchido pelo JavaScript -->
+    </section>
+    
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+   <script src="./JS/Script.js"></script>
+   <script src="./JS/despesas.js"></script>
+</body>
+</html>

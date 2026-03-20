@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Receitas</title>
+    <link rel="stylesheet" href="./CSS/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📥</text></svg>">
+</head>
+<body>
+    <header>
+        <h1>📥 Minhas Receitas</h1>
+    </header>
+
+     <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+    <!-- RESUMO DE RECEITAS -->
+    <section>
+        <h2>📊 Resumo de Receitas</h2>
+        <div class="cards-container">
+            <div class="card">
+                <h3>💰 Total de Receitas</h3>
+                <p id="totalReceitas">R$ 0,00</p>
+              <small>Total de <span id="totalReceitasCount">0</span> receitas</small>
+            </div>
+
+            <div class="card">
+                <h3>📅 Receitas do Mês</h3>
+                <p id="receitasMes">R$ 0,00</p>
+                <small>Março/2024</small>
+            </div>
+
+            <div class="card">
+                <h3>📈 Média Mensal</h3>
+                <p id="mediaReceitas">R$ 0,00</p>
+                <small>Últimos 3 meses</small>
+            </div>
+        </div>
+    </section>
+
+    <!-- FORMULÁRIO PARA CADASTRAR RECEITA -->
+    <section>
+        <h2>➕ Cadastrar nova receita</h2>
+
+        <div class="form-container">
+            <form id="formReceita">
+                <!-- Descrição -->
+                <div>
+                    <label for="descReceita">Descrição:</label><br>
+                    <input type="text" id="descReceita" placeholder="Ex: Salário, Freela, Pix..." required>
+                </div>
+
+                <!-- Valor -->
+                <div>
+                    <label for="valorReceita">Valor (R$):</label><br>
+                    <input type="number" id="valorReceita" step="0.01" placeholder="0,00" required>
+                </div>
+
+                <!-- Data -->
+                <div>
+                    <label for="dataReceita">Data:</label><br>
+                    <input type="date" id="dataReceita" required>
+                </div>
+
+                <!-- Categoria -->
+                <div>
+                    <label for="categoriaReceita">Categoria:</label><br>
+                    <select id="categoriaReceita">
+                        <option value="salario">💼 Salário</option>
+                        <option value="freela">💻 Freela / Extra</option>
+                        <option value="pix">📲 Pix recebido</option>
+                        <option value="investimento">📈 Rendimentos</option>
+                        <option value="outros">📦 Outros</option>
+                        <option value="nova">➕ Nova categoria...</option>
+                    </select>
+                </div>
+
+                <!-- Banco onde vai cair -->
+               <div>
+                    <label for="bancoReceita">Selecionar banco:</label><br>
+                    <select id="bancoReceita" required>
+                        <option value="">Carregando bancos...</option>
+                    </select>
+                    <small>O valor será adicionado ao saldo deste banco</small>
+                </div>
+
+                <!-- Receita fixa? -->
+                <div>
+                    <input type="checkbox" id="receitaFixa">
+                    <label for="receitaFixa">Receita fixa (repete todo mês)</label>
+                </div>
+
+               <div style="display: flex; gap: 10px;">
+                    <button type="submit" id="btnSalvarReceita">✅ Cadastrar receita</button>
+                    <button type="button" onclick="cancelarEdicaoReceita()" class="btn-cancelar">❌ Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- LISTA DE RECEITAS CADASTRADAS -->
+    <section>
+       <!-- FILTROS -->
+        <div class="filtros">
+            <select id="filtroMes">
+                <option value="todos">📅 Todos os meses</option>
+                <option value="1">Janeiro</option>
+                <option value="2">Fevereiro</option>
+                <option value="3">Março</option>
+                <option value="4">Abril</option>
+                <option value="5">Maio</option>
+                <option value="6">Junho</option>
+                <option value="7">Julho</option>
+                <option value="8">Agosto</option>
+                <option value="9">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+                <option value="12">Dezembro</option>
+            </select>
+            
+            <select id="filtroAno">
+                <option value="2024">📆 2024</option>
+                <option value="2025">📆 2025</option>
+                <option value="2026">📆 2026</option>
+            </select>
+            
+            <select id="filtroCategoria">
+                <option value="todas">🏷️ Todas categorias</option>
+                <option value="salario">💼 Salário</option>
+                <option value="freela">💻 Freela</option>
+                <option value="pix">📲 Pix</option>
+                <option value="investimento">📈 Investimentos</option>
+                <option value="outros">📦 Outros</option>
+            </select>
+            
+            <button onclick="aplicarFiltros()">🔍 Filtrar</button>
+        </div>
+
+
+        <h2>📋 Últimas receitas</h2>
+        
+        <!-- Cabeçalho -->
+        <div class="lista-header">
+            <span>Data</span>
+            <span>Descrição</span>
+            <span>Categoria</span>
+            <span>Valor</span>
+            <span>Banco</span>
+            <span>Ações</span>
+        </div>
+
+        <!-- Container onde as receitas vão aparecer -->
+        <div id="listaReceitas">
+            <!-- O JavaScript vai preencher aqui -->
+        </div>
+    </section>
+
+    <!-- RECEITAS FIXAS (PRÓXIMOS MESES) -->
+    <section>
+        <h2>📅 Receitas Fixas</h2>
+        <div class="cards-container" id="receitasFixas">
+            <div class="card">
+                <h4>Salário</h4>
+                <p>R$ 1.918,40</p>
+                <small>Todo dia 05</small> <br>
+                <button class="btn-ajuste">✏️ Ajustar para este mês</button>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+    <script src="./JS/Script.js"></script>
+    <script src="./JS/receitas.js"></script>
+</body>
+</html>

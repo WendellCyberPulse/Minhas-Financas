@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup - Sistema Financeiro</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💾</text></svg>">
+</head>
+<body>
+    <header>
+        <h1>💾 Backup do Sistema</h1>
+        <p>Olá Wendell Adriano</p>
+    </header>
+
+     <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+    <!-- RESUMO DOS DADOS -->
+    <section>
+        <h2>📊 Resumo dos Dados</h2>
+        <div class="cards-container" id="resumoDados">
+            <div class="card">
+                <h3>🏦 Bancos</h3>
+                <p id="totalBancos">0</p>
+                <small>Bancos cadastrados</small>
+            </div>
+            <div class="card">
+                <h3>💳 Cartões</h3>
+                <p id="totalCartoes">0</p>
+                <small>Cartões cadastrados</small>
+            </div>
+            <div class="card">
+                <h3>📥 Receitas</h3>
+                <p id="totalReceitas">0</p>
+                <small>Receitas cadastradas</small>
+            </div>
+            <div class="card">
+                <h3>📝 Despesas</h3>
+                <p id="totalDespesas">0</p>
+                <small>Despesas cadastradas</small>
+            </div>
+        </div>
+    </section>
+
+    <!-- ÁREA DE BACKUP -->
+    <section>
+        <h2>💾 Exportar Backup</h2>
+        <div class="cards-container">
+            <div class="card" style="text-align: center;">
+                <h3>📥 Backup Completo</h3>
+                <p style="font-size: 14px; margin: 20px 0;">
+                    Exporta todos os dados do sistema em um arquivo JSON:<br>
+                    <strong>Bancos, Cartões, Receitas e Despesas</strong>
+                </p>
+                <button onclick="exportarBackup()" class="btn-primary" style="background-color: #4CAF50; font-size: 18px; padding: 15px 30px;">
+                    💾 BAIXAR BACKUP
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ÁREA DE RESTAURAÇÃO -->
+    <section>
+        <h2>🔄 Restaurar Backup</h2>
+        <div class="cards-container">
+            <div class="card" style="text-align: center;">
+                <h3>📤 Restaurar Dados</h3>
+                <p style="font-size: 14px; margin: 20px 0; color: #ff9800;">
+                    ⚠️ ATENÇÃO: Isso substituirá TODOS os dados atuais!
+                </p>
+                
+                <div style="margin: 20px 0;">
+                    <input type="file" id="arquivoBackup" accept=".json" style="display: none;">
+                    <button onclick="document.getElementById('arquivoBackup').click()" class="btn-primary" style="background-color: #2196F3;">
+                        📂 SELECIONAR ARQUIVO
+                    </button>
+                    <span id="nomeArquivo" style="margin-left: 10px; color: #888;">Nenhum arquivo selecionado</span>
+                </div>
+                
+                <button onclick="restaurarBackup()" class="btn-primary" style="background-color: #ff9800;" disabled id="btnRestaurar">
+                    🔄 RESTAURAR BACKUP
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- INFORMAÇÕES DO BACKUP -->
+    <section>
+        <h2>📋 Último Backup</h2>
+        <div class="card">
+            <div id="infoBackup">
+                <p style="text-align: center; color: #888;">Nenhum backup encontrado</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRÉVIA DOS DADOS (opcional) -->
+    <section>
+        <h2>👁️ Prévia dos Dados</h2>
+        <div class="card">
+            <pre id="previaDados" style="background-color: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto; color: #0f0; max-height: 300px;">
+Nenhum backup carregado
+            </pre>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+    <script src="./js/script.js"></script>
+    <script>
+        // ===== BACKUP SYSTEM =====
+        console.log("💾 Página de backup carregada");
+
+        // Atualizar resumo dos dados
+        function atualizarResumo() {
+            const bancos = JSON.parse(localStorage.getItem('bancos')) || [];
+            const cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
+            const receitas = JSON.parse(localStorage.getItem('receitas')) || [];
+            const despesas = JSON.parse(localStorage.getItem('despesas')) || [];
+            
+            document.getElementById('totalBancos').textContent = bancos.length;
+            document.getElementById('totalCartoes').textContent = cartoes.length;
+            document.getElementById('totalReceitas').textContent = receitas.length;
+            document.getElementById('totalDespesas').textContent = despesas.length;
+        }
+
+        // EXPORTAR BACKUP
+        function exportarBackup() {
+            // Coletar todos os dados
+            const backup = {
+                data: new Date().toLocaleString(),
+                versao: '1.0',
+                bancos: JSON.parse(localStorage.getItem('bancos')) || [],
+                cartoes: JSON.parse(localStorage.getItem('cartoes')) || [],
+                receitas: JSON.parse(localStorage.getItem('receitas')) || [],
+                despesas: JSON.parse(localStorage.getItem('despesas')) || []
+            };
+            
+            // Calcular totais
+            backup.totalBancos = backup.bancos.length;
+            backup.totalCartoes = backup.cartoes.length;
+            backup.totalReceitas = backup.receitas.length;
+            backup.totalDespesas = backup.despesas.length;
+            
+            // Criar nome do arquivo
+            const data = new Date();
+            const nomeArquivo = `backup-financas-${data.getFullYear()}-${(data.getMonth()+1).toString().padStart(2,'0')}-${data.getDate().toString().padStart(2,'0')}.json`;
+            
+            // Converter para JSON
+            const jsonString = JSON.stringify(backup, null, 2);
+            
+            // Criar e baixar arquivo
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nomeArquivo;
+            a.click();
+            
+            // Salvar informação do último backup
+            localStorage.setItem('ultimoBackup', JSON.stringify({
+                data: backup.data,
+                totalBancos: backup.totalBancos,
+                totalCartoes: backup.totalCartoes,
+                totalReceitas: backup.totalReceitas,
+                totalDespesas: backup.totalDespesas
+            }));
+            
+            atualizarInfoBackup();
+            alert('✅ Backup exportado com sucesso!');
+        }
+
+        // Selecionar arquivo
+        document.getElementById('arquivoBackup').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('nomeArquivo').textContent = file.name;
+                document.getElementById('btnRestaurar').disabled = false;
+                
+                // Ler arquivo para prévia
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const dados = JSON.parse(e.target.result);
+                        document.getElementById('previaDados').textContent = JSON.stringify(dados, null, 2);
+                    } catch (error) {
+                        document.getElementById('previaDados').textContent = '❌ Arquivo inválido!';
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // RESTAURAR BACKUP
+        function restaurarBackup() {
+            const fileInput = document.getElementById('arquivoBackup');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('❌ Selecione um arquivo de backup!');
+                return;
+            }
+            
+            if (!confirm('⚠️ ATENÇÃO! Isso substituirá TODOS os dados atuais. Continuar?')) {
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    // Validar estrutura do backup
+                    if (!backup.bancos || !backup.cartoes || !backup.receitas || !backup.despesas) {
+                        throw new Error('Arquivo de backup inválido!');
+                    }
+                    
+                    // Restaurar dados
+                    localStorage.setItem('bancos', JSON.stringify(backup.bancos));
+                    localStorage.setItem('cartoes', JSON.stringify(backup.cartoes));
+                    localStorage.setItem('receitas', JSON.stringify(backup.receitas));
+                    localStorage.setItem('despesas', JSON.stringify(backup.despesas));
+                    
+                    alert('✅ Backup restaurado com sucesso!');
+                    
+                    // Resetar interface
+                    fileInput.value = '';
+                    document.getElementById('nomeArquivo').textContent = 'Nenhum arquivo selecionado';
+                    document.getElementById('btnRestaurar').disabled = true;
+                    document.getElementById('previaDados').textContent = 'Nenhum backup carregado';
+                    
+                    atualizarResumo();
+                    atualizarInfoBackup();
+                    
+                } catch (error) {
+                    alert('❌ Erro ao restaurar backup: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Atualizar informações do último backup
+        function atualizarInfoBackup() {
+            const ultimoBackup = JSON.parse(localStorage.getItem('ultimoBackup'));
+            const infoDiv = document.getElementById('infoBackup');
+            
+            if (ultimoBackup) {
+                infoDiv.innerHTML = `
+                    <p><strong>📅 Data:</strong> ${ultimoBackup.data}</p>
+                    <p><strong>🏦 Bancos:</strong> ${ultimoBackup.totalBancos}</p>
+                    <p><strong>💳 Cartões:</strong> ${ultimoBackup.totalCartoes}</p>
+                    <p><strong>📥 Receitas:</strong> ${ultimoBackup.totalReceitas}</p>
+                    <p><strong>📝 Despesas:</strong> ${ultimoBackup.totalDespesas}</p>
+                `;
+            } else {
+                infoDiv.innerHTML = '<p style="text-align: center; color: #888;">Nenhum backup encontrado</p>';
+            }
+        }
+
+        // Inicializar página
+        document.addEventListener('DOMContentLoaded', function() {
+            atualizarResumo();
+            atualizarInfoBackup();
+        });
+    </script>
+</body>
+</html>

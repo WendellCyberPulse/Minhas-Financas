@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Bancos</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>">
+
+</head>
+<body>
+    <header>
+        <h1>🏦 Meus Bancos</h1>
+    </header>
+
+     <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+        <!-- RESUMO TOTAL EM BANCOS -->
+    <section>
+        <h2>💰 Resumo do seu dinheiro</h2>
+
+        <div class="cards-container">
+            <!-- Card Saldo Total -->
+            <div class="card">
+                <h3>Saldo Total</h3>
+                <p id="saldoTotalBancos">R$ 0,00</p>
+                 <small>Total em <span id="totalBancos">0</span> bancos</small>
+            </div>
+        </div>
+        
+        
+    </section>
+
+        <!-- FORMULÁRIO PARA CADASTRAR NOVO BANCO -->
+    <section>
+        <h2>➕ Cadastrar novo banco</h2>
+
+        <div class="form-container">
+        
+            <form id="formBanco">
+                <!-- Nome do banco -->
+                <div>
+                    <label for="nomeBanco">Nome do banco:</label><br>
+                    <input type="text" id="nomeBanco" placeholder="Ex: Nubank, Itaú, Caixa..." required>
+                </div>
+
+                <!-- Tipo de conta -->
+                <div>
+                    <label for="tipoConta">Tipo de conta:</label><br>
+                    <select id="tipoConta">
+                        <option value="corrente">Conta Corrente</option>
+                        <option value="poupanca">Poupança</option>
+                        <option value="investimento">Investimentos</option>
+                    </select>
+                </div>
+
+                <!-- Saldo atual -->
+                <div>
+                    <label for="saldoAtual">Saldo atual (R$):</label><br>
+                    <input type="number" id="saldoAtual" step="0.01" placeholder="0,00" required>
+                </div>
+
+                <!-- Botão salvar -->
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" id="btnSalvarBanco">💾 Salvar banco</button>
+                    <button type="button" onclick="cancelarEdicao()" class="btn-cancelar">❌ Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+        <!-- LISTA DE BANCOS CADASTRADOS -->
+    <section>
+        <h2>📋 Minhas contas</h2>
+        
+        <!-- Cabeçalho da lista -->
+        <div class="lista-header">
+            <span>Banco</span>
+            <span>Tipo</span>
+            <span>Saldo</span>
+            <span>Ações</span>
+        </div>
+        
+        <div id="listaBanco">
+
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+   <script src="./JS/Script.js"></script>
+   <script src="./JS/banco.js"></script>
+</body>
+</html>

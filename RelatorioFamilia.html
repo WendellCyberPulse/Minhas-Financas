@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório - Despesas da Família</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👥</text></svg>">
+    
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        /* Estilo específico para o PDF */
+        .pdf-content {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background: white;
+            color: black;
+        }
+        .pdf-content h1 {
+            color: #af4c4c;
+            text-align: center;
+        }
+        .pdf-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .pdf-content th {
+            background: #af4c4c;
+            color: white;
+            padding: 10px;
+            border: 1px solid #333;
+        }
+        .pdf-content td {
+            padding: 8px;
+            border: 1px solid #333;
+        }
+        .pdf-content .resumo {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>👥 Relatório da Família</h1>
+        <p>Olá Wendell Adriano</p>
+    </header>
+
+    <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+    <!-- RESUMO DO RELATÓRIO -->
+    <section>
+        <h2>📊 Resumo Familiar</h2>
+        <div class="cards-container">
+            <div class="card">
+                <h3>💰 Total de Despesas</h3>
+                <p id="totalGeral">R$ 0,00</p>
+                <small>Todas as despesas da família</small>
+            </div>
+            <div class="card">
+                <h3>👥 Divisão por Pessoa</h3>
+                <p id="valorPorPessoa">R$ 0,00</p>
+                <small>Total ÷ <span id="totalPessoas">3</span> pessoas</small>
+            </div>
+            <div class="card">
+                <h3>📅 Despesas Pagas</h3>
+                <p id="totalPagas">R$ 0,00</p>
+                <small><span id="countPagas">0</span> de <span id="countTotal">0</span> despesas</small>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTROLE DE PESSOAS -->
+    <section>
+        <h2>👤 Membros da Família</h2>
+        <div class="form-container" style="max-width: 300px; margin: 0 auto;">
+            <label>Número de pessoas:</label>
+            <select id="numeroPessoas" onchange="atualizarRelatorio()">
+                <option value="2">2 pessoas</option>
+                <option value="3" selected>3 pessoas</option>
+                <option value="4">4 pessoas</option>
+                <option value="5">5 pessoas</option>
+            </select>
+            <small>Quantas pessoas dividem as contas?</small>
+        </div>
+    </section>
+
+    <!-- TABELA DE DESPESAS FAMILIARES -->
+    <section>
+        <h2>📋 Lista de Despesas da Família</h2>
+        
+        <table class="tabela-relatorio">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Valor Total</th>
+                    <th>Dividido por</th>
+                    <th>Valor por Pessoa</th>
+                    <th>Status</th>
+                    <th>Quem pagou</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaDespesasFamilia">
+                <tr>
+                    <td colspan="7" style="text-align: center;">Carregando...</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="2">TOTAL</th>
+                    <th id="totalTabela">R$ 0,00</th>
+                    <th></th>
+                    <th id="totalPorPessoaTabela">R$ 0,00</th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+
+    <!-- GRÁFICO DE DISTRIBUIÇÃO -->
+    <section>
+        <h2>📊 Distribuição por Pessoa</h2>
+        <div style="max-width: 400px; margin: 0 auto; background: #2d2d2d; padding: 20px; border-radius: 10px;">
+            <canvas id="graficoPessoas" style="width:100%; height:300px;"></canvas>
+        </div>
+    </section>
+
+    <!-- BOTÕES -->
+    <section style="text-align: center;">
+        <button onclick="window.print()" class="btn-primary">🖨️ Imprimir Relatório</button>
+        <button onclick="gerarPDF()" class="btn-primary" style="background-color: #4CAF50;">📄 Exportar PDF</button>
+    </section>
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+    <script src="./js/script.js"></script>
+    <script>
+        // ===== RELATÓRIO DA FAMÍLIA =====
+        console.log("👥 Página de relatório familiar carregada");
+
+        let graficoAtual = null;
+
+        function atualizarRelatorio() {
+            const numPessoas = parseInt(document.getElementById('numeroPessoas').value) || 3;
+            const despesas = JSON.parse(localStorage.getItem('despesas')) || [];
+            const despesasFamilia = despesas.filter(d => d.tipo === 'familia');
+            
+            let totalGeral = 0;
+            let totalPagas = 0;
+            let countPagas = 0;
+            
+            despesasFamilia.forEach(d => {
+                const valor = d.valorTotal || 0;
+                totalGeral += valor;
+                if (d.paga) {
+                    totalPagas += valor;
+                    countPagas++;
+                }
+            });
+            
+            const valorPorPessoa = totalGeral / numPessoas;
+            
+            document.getElementById('totalGeral').textContent = formatarMoeda(totalGeral);
+            document.getElementById('valorPorPessoa').textContent = formatarMoeda(valorPorPessoa);
+            document.getElementById('totalPessoas').textContent = numPessoas;
+            document.getElementById('totalPagas').textContent = formatarMoeda(totalPagas);
+            document.getElementById('countPagas').textContent = countPagas;
+            document.getElementById('countTotal').textContent = despesasFamilia.length;
+            
+            atualizarTabela(despesasFamilia, numPessoas);
+            atualizarGrafico(despesasFamilia, numPessoas);
+        }
+
+        function atualizarTabela(despesas, numPessoas) {
+            const tbody = document.getElementById('tabelaDespesasFamilia');
+            const totalTabela = document.getElementById('totalTabela');
+            const totalPorPessoaTabela = document.getElementById('totalPorPessoaTabela');
+            
+            if (despesas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Nenhuma despesa familiar encontrada</td></tr>`;
+                totalTabela.textContent = formatarMoeda(0);
+                totalPorPessoaTabela.textContent = formatarMoeda(0);
+                return;
+            }
+            
+            despesas.sort((a, b) => new Date(b.data) - new Date(a.data));
+            
+            let html = '';
+            let totalGeral = 0;
+            
+            despesas.forEach(d => {
+                const valor = d.valorTotal || 0;
+                const valorPorPessoa = valor / numPessoas;
+                totalGeral += valor;
+                
+                const statusClass = d.paga ? 'status-pago' : 'status-pendente';
+                const statusText = d.paga ? '✅ Pago' : '⏳ Pendente';
+                
+                html += `
+                    <tr>
+                        <td>${formatarData(d.data)}</td>
+                        <td>${d.descricao}</td>
+                        <td>${formatarMoeda(valor)}</td>
+                        <td>${numPessoas} pessoas</td>
+                        <td>${formatarMoeda(valorPorPessoa)}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                        <td>${d.pagador || '—'}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+            totalTabela.textContent = formatarMoeda(totalGeral);
+            totalPorPessoaTabela.textContent = formatarMoeda(totalGeral / numPessoas);
+        }
+
+        function atualizarGrafico(despesas, numPessoas) {
+            const ctx = document.getElementById('graficoPessoas')?.getContext('2d');
+            if (!ctx) return;
+            
+            if (graficoAtual) {
+                graficoAtual.destroy();
+            }
+            
+            if (despesas.length === 0) {
+                return;
+            }
+            
+            const valores = new Array(numPessoas).fill(0);
+            const labels = [];
+            
+            for (let i = 0; i < numPessoas; i++) {
+                labels.push(`Pessoa ${i+1}`);
+            }
+            
+            despesas.forEach(d => {
+                const valor = (d.valorTotal || 0) / numPessoas;
+                for (let i = 0; i < numPessoas; i++) {
+                    valores[i] += valor;
+                }
+            });
+            
+            graficoAtual = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            labels: { 
+                                color: '#fff',
+                                font: { size: 14 }
+                            } 
+                        }
+                    }
+                }
+            });
+        }
+
+        function gerarPDF() {
+    const numPessoas = parseInt(document.getElementById('numeroPessoas').value) || 3;
+    const despesas = JSON.parse(localStorage.getItem('despesas')) || [];
+    const despesasFamilia = despesas.filter(d => d.tipo === 'familia');
+    
+    if (despesasFamilia.length === 0) {
+        alert('Nenhuma despesa familiar para gerar PDF!');
+        return;
+    }
+    
+    const totalGeral = despesasFamilia.reduce((acc, d) => acc + (d.valorTotal || 0), 0);
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    
+    // Criar linhas da tabela
+    let linhas = '';
+    despesasFamilia.forEach(d => {
+        const valorPorPessoa = (d.valorTotal || 0) / numPessoas;
+        linhas += `
+            <tr>
+                <td style="border: 1px solid #000; padding: 8px;">${formatarData(d.data)}</td>
+                <td style="border: 1px solid #000; padding: 8px;">${d.descricao}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">R$ ${(d.valorTotal || 0).toFixed(2)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${numPessoas}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">R$ ${valorPorPessoa.toFixed(2)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${d.paga ? '✅ Pago' : '⏳ Pendente'}</td>
+            </tr>
+        `;
+    });
+    
+    // HTML completo
+    const conteudoHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Relatório Familiar</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 30px;
+                    color: #333;
+                }
+                h1 {
+                    color: #af4c4c;
+                    text-align: center;
+                    border-bottom: 2px solid #af4c4c;
+                    padding-bottom: 10px;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    color: #666;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }
+                th {
+                    background-color: #af4c4c;
+                    color: white;
+                    padding: 12px;
+                    border: 1px solid #af4c4c;
+                }
+                td {
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                }
+                .resumo {
+                    background-color: #f9f9f9;
+                    padding: 20px;
+                    border-radius: 5px;
+                    margin-top: 30px;
+                    border-left: 4px solid #af4c4c;
+                }
+                .footer {
+                    text-align: center;
+                    margin-top: 40px;
+                    color: #999;
+                    font-size: 12px;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>👥 Relatório de Despesas da Família</h1>
+            
+            <div class="header">
+                <p><strong>Gerado em:</strong> ${dataAtual}</p>
+                <p><strong>Divisão entre ${numPessoas} pessoas</strong></p>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Descrição</th>
+                        <th>Valor Total</th>
+                        <th>Pessoas</th>
+                        <th>Por Pessoa</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${linhas}
+                </tbody>
+            </table>
+            
+            <div class="resumo">
+                <h3 style="margin-top: 0;">📊 Resumo</h3>
+                <p><strong>Total de Despesas:</strong> R$ ${totalGeral.toFixed(2)}</p>
+                <p><strong>Valor por Pessoa:</strong> R$ ${(totalGeral / numPessoas).toFixed(2)}</p>
+                <p><strong>Total de Itens:</strong> ${despesasFamilia.length} despesa(s)</p>
+            </div>
+            
+            <div class="footer">
+                <p>Relatório gerado automaticamente pelo Sistema de Finanças Pessoais</p>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    // Criar e baixar
+    const blob = new Blob([conteudoHTML], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-familia-${dataAtual.replace(/\//g, '-')}.html`;
+    a.click();
+    
+    alert('✅ Relatório gerado! Abra o arquivo HTML no navegador e use Ctrl+P para salvar como PDF.');
+}
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            atualizarRelatorio();
+            document.getElementById('numeroPessoas').addEventListener('change', atualizarRelatorio);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Cartões</title>
+    <link rel="stylesheet" href="css/style.css">
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💳</text></svg>">
+</head>
+<body>
+    <header>
+        <h1>💳 Meus Cartões</h1>
+    </header>
+
+     <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+       <!-- RESUMO DOS CARTÕES -->
+        <section>
+            <h2>📊 Resumo dos Cartões</h2>
+            <div class="cards-container">  
+                <div class="card">
+                    <h3>💰 Limite Total</h3>
+                    <p id="limiteTotalGeral">R$ 0,00</p>
+                     <small>Total de <span id="totalCartoes">0</span> cartões</small>
+                </div>
+
+                <div class="card">
+                    <h3>📉 Total Usado</h3>
+                    <p id="totalUsado">R$ 0,00</p>
+                    <small>Compras no crédito</small>
+                </div>
+
+                <div class="card">
+                    <h3>✅ Disponível</h3>
+                    <p id="disponivel">R$ 0,00</p>
+                    <small>Limite disponível para usar</small>
+                </div>
+            </div>
+        </section>
+
+        <!-- FORMULÁRIO PARA CADASTRAR CARTÃO -->
+    <section>
+        <h2>➕ Cadastrar novo cartão</h2>
+
+        <div class="form-container">
+        
+            <form id="formCartao">
+                <!-- Nome do cartão -->
+                <div>
+                    <label for="nomeCartao">Nome do cartão:</label><br>
+                    <input type="text" id="nomeCartao" placeholder="Ex: Nubank, Itaú, Credicard...">
+                </div>
+
+                <!-- Bandeira -->
+                <div>
+                    <label for="bandeira">Bandeira:</label><br>
+                    <select id="bandeira">
+                        <option value="visa">Visa</option>
+                        <option value="mastercard">Mastercard</option>
+                        <option value="elo">Elo</option>
+                        <option value="amex">Amex</option>
+                    </select>
+                </div>
+
+                <!-- Limite total -->
+                <div>
+                    <label for="limiteTotal">Limite total (R$):</label><br>
+                    <input type="number" id="limiteTotal" step="0.01" placeholder="0,00">
+                </div>
+
+                <!-- Dia vencimento -->
+                <div>
+                    <label for="vencimento">Dia vencimento:</label><br>
+                    <select id="vencimento">
+                        <option value="5">Dia 5</option>
+                        <option value="10">Dia 10</option>
+                        <option value="15">Dia 15</option>
+                        <option value="20">Dia 20</option>
+                        <option value="25">Dia 25</option>
+                    </select>
+                </div>
+
+                <!-- Botão salvar -->
+               <div style="display: flex; gap: 10px;">
+                    <button type="submit" id="btnSalvarCartao">💾 Salvar cartão</button>
+                    <button type="button" onclick="cancelarEdicaoCartao()" class="btn-cancelar">❌ Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+        <!-- LISTA DE CARTÕES CADASTRADOS -->
+    <section>
+        <h2>📋 Meus cartões</h2>
+        
+        <!-- Cabeçalho da lista -->
+        <div class="lista-header">
+            <span>Cartão</span>
+            <span>Bandeira</span>
+            <span>Limite</span>
+            <span>Usado</span>
+            <span>Disponível</span>
+            <span>Vencimento</span>
+            <span>Ações</span>
+        </div>
+
+        <div id="listaCartoes">
+            
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+   <script src="./JS/Script.js"></script>
+   <script src="./JS/cartao.js"></script>
+</body>
+</html>

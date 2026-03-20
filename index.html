@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Finanças</title>
+    <link rel="stylesheet" href="./CSS/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body>
+    <header>
+        <h1>💰 Minhas Finanças</h1>
+    </header>
+
+     <nav>
+        <a href="index.html">🔰 Início</a>
+        <a href="bancos.html">🏦 Bancos</a>
+        <a href="receitas.html">💵Receitas</a>
+        <a href="despesas.html">💸 Despesas</a>
+        <a href="cartao.html">💳 Cartão</a>
+        <a href="RelatorioFamilia.html">👥 Relatório Família</a>
+        <a href="backup.html">💾 Backup</a>
+    </nav>
+
+   <!-- CARDS DE RESUMO RÁPIDO -->
+        <section>
+            <h2>📊 Resumo Geral</h2>
+            <div class="cards-container">
+                <div class="card"> 
+                    <h3>🏦 Saldo em Bancos</h3>
+                    <p id="resumoSaldoBancos">R$ 0,00</p>
+                    <small>Total em todas as contas</small>
+                </div>
+
+                <div class="card"> 
+                    <h3>💳 Limite Cartões</h3>
+                    <p id="resumoLimiteCartoes">R$ 0,00</p>
+                    <small>Limite total disponível</small>
+                </div>
+
+                <div class="card">
+                    <h3>📉 Despesas do Mês</h3>
+                    <p id="resumoTotalDespesas">R$ 0,00</p>
+                    <small>Total gasto (tudo incluso)</small>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TOTAIS POR TIPO DE DESPESA -->
+    <section>
+        <h2>📊 Despesas por categoria</h2>
+
+        <div class="cards-container">
+
+            <!-- Card Despesas Família -->
+            <div class="card">
+                <h3>👥 Despesas da Família</h3>
+                <p id="dashboardTotalFamilia">R$ 0,00</p>
+                <small>Contas compartilhadas</small>
+            </div> 
+  
+
+            <!-- Card Despesas Individuais -->
+            <div class="card">
+                <h3>👤 Despesas Individuais</h3>
+                <p id="dashboardTotalIndividual">R$ 0,00</p>
+                <small>Gastos Pessoais</small>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- SEÇÃO DE GRÁFICOS -->
+    <section>
+        <h2>📊 Análise de Gastos</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- Gráfico de Pizza (Categorias) -->
+            <div class="card" style="background-color: #2d2d2d;">
+                <h3>🥧 Gastos por Categoria</h3>
+                <canvas id="graficoPizza" style="width:100%; max-height:300px;"></canvas>
+            </div>
+            
+            <!-- Gráfico de Barras (Evolução) -->
+            <div class="card" style="background-color: #2d2d2d;">
+                <h3>📈 Evolução Mensal</h3>
+                <canvas id="graficoBarras" style="width:100%; max-height:300px;"></canvas>
+            </div>
+        </div>
+        
+        <!-- Gráfico de Linha (Saldo x Despesas) -->
+        <div class="card" style="background-color: #2d2d2d; margin-top: 20px;">
+            <h3>📉 Saldo vs Despesas</h3>
+            <canvas id="graficoLinha" style="width:100%; max-height:250px;"></canvas>
+        </div>
+    </section>
+
+        <!-- ÚLTIMAS DESPESAS -->
+    <section>
+        <h2>🕒 Últimas despesas</h2>
+        
+        <!-- Cabeçalho da lista -->
+        <div class="lista-header">
+            <span>Data</span>
+            <span>Descrição</span>
+            <span>Tipo</span>
+            <span>Valor</span>
+        </div>
+
+      <div id="ultimasDespesas">
+
+      </div>
+
+        <!-- Link para ver todas -->
+        <div style="margin-top: 20px; text-align: right;">
+            <a href="despesas.html" style="color: #af4c4c; text-decoration: none; font-weight: bold;">
+                Ver todas as despesas →
+            </a>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 - Wendell Adriano</p>
+    </footer>
+
+    <script src="./JS/Script.js"></script>
+    <script src="./JS/index.js"></script>
+</body>
+</html>
