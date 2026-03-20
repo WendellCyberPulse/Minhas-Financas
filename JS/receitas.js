@@ -368,35 +368,39 @@ async function atualizarSaldoBancoSupabase(nomeBanco, valor, operacao) {
 window.editarReceita = async function(id) {
     if (!confirm('Deseja editar esta receita?')) return;
     
-    const { data: receita, error } = await window.supabaseClient
-        .from('receitas')
-        .select('*')
-        .eq('id', id)
-        .single();
-    
-    if (error || !receita) {
-        alert('❌ Receita não encontrada!');
-        return;
+    try {
+        const { data: receitas, error } = await window.supabaseClient
+            .from('receitas')
+            .select('*')
+            .eq('id', id);
+        
+        if (error) throw error;
+        if (!receitas || receitas.length === 0) {
+            alert('❌ Receita não encontrada!');
+            return;
+        }
+        
+        const receita = receitas[0];
+        
+        document.getElementById('descReceita').value = receita.descricao;
+        document.getElementById('valorReceita').value = receita.valor;
+        document.getElementById('dataReceita').value = receita.data;
+        document.getElementById('categoriaReceita').value = receita.categoria;
+        document.getElementById('bancoReceita').value = receita.banco;
+        document.getElementById('receitaFixa').checked = receita.fixa;
+        
+        // GUARDAR O ID - NÃO REMOVER A RECEITA!
+        sessionStorage.setItem('editandoReceitaId', id);
+        
+        const btn = document.querySelector('#formReceita button[type="submit"]');
+        btn.textContent = '✏️ Atualizar receita';
+        
+        document.getElementById('formReceita').scrollIntoView({ behavior: 'smooth' });
+        
+    } catch (error) {
+        console.error("Erro ao editar receita:", error);
+        alert("Erro ao editar receita: " + error.message);
     }
-    
-    document.getElementById('descReceita').value = receita.descricao;
-    document.getElementById('valorReceita').value = receita.valor;
-    document.getElementById('dataReceita').value = receita.data;
-    document.getElementById('categoriaReceita').value = receita.categoria;
-    document.getElementById('bancoReceita').value = receita.banco;
-    document.getElementById('receitaFixa').checked = receita.fixa;
-    
-    // Remove valor antigo do banco
-    await atualizarSaldoBancoSupabase(receita.banco, receita.valor, 'remover');
-    
-    // Remove receita antiga
-    await window.supabaseClient.from('receitas').delete().eq('id', id);
-    
-    const btn = document.querySelector('#formReceita button[type="submit"]');
-    btn.textContent = '✏️ Atualizar receita';
-    
-    sessionStorage.setItem('editandoReceitaId', id);
-    document.getElementById('formReceita').scrollIntoView({ behavior: 'smooth' });
 }
 
 // Aplicar filtros

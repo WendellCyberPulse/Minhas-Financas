@@ -268,7 +268,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
-        // Pegar usuário logado
+        const editandoId = sessionStorage.getItem('editandoDespesaId');
+        const despesaOriginal = JSON.parse(sessionStorage.getItem('despesaOriginal'));
+        
         const { data: { user } } = await window.supabaseClient.auth.getUser();
         if (!user) {
             alert('❌ Você precisa estar logado!');
@@ -277,29 +279,74 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         const participantes = ['João', 'Maria', 'Você'].slice(0, divisao);
         
-        const { error } = await window.supabaseClient
-            .from('despesas')
-            .insert([{
-                id: Date.now(),
-                tipo: 'familia',
-                descricao: descricao,
-                valorTotal: valorTotal,
-                data: data,
-                divisao: divisao,
-                participantes: participantes,
-                pagador: pagador,
-                pagamento: pagamento,
-                banco: pagamento === 'debito' ? banco : null,
-                cartao: pagamento === 'credito' ? cartao : null,
-                paga: false,
-                user_id: user.id
-            }]);
-        
-        if (error) {
-            alert('❌ Erro ao cadastrar despesa: ' + error.message);
-            return;
+        if (editandoId) {
+            // EDIÇÃO - Atualizar a despesa existente
+            
+            // Se a despesa original estava paga, precisamos reverter os efeitos
+            if (despesaOriginal && despesaOriginal.paga) {
+                // Reverter efeito anterior (remover do banco/cartão)
+                if (despesaOriginal.pagamento === 'debito' && despesaOriginal.banco) {
+                    await atualizarSaldoBanco(despesaOriginal.banco, despesaOriginal.valor, 'adicionar');
+                }
+                if (despesaOriginal.pagamento === 'credito' && despesaOriginal.cartao) {
+                    await atualizarLimiteCartao(despesaOriginal.cartao, despesaOriginal.valor, 'remover');
+                }
+            }
+            
+            // Atualizar a despesa
+            const { error } = await window.supabaseClient
+                .from('despesas')
+                .update({
+                    descricao: descricao,
+                    valorTotal: valorTotal,
+                    data: data,
+                    divisao: divisao,
+                    participantes: participantes,
+                    pagador: pagador,
+                    pagamento: pagamento,
+                    banco: pagamento === 'debito' ? banco : null,
+                    cartao: pagamento === 'credito' ? cartao : null
+                    // paga mantém o valor original
+                })
+                .eq('id', parseInt(editandoId));
+            
+            if (error) throw error;
+            
+            sessionStorage.removeItem('editandoDespesaId');
+            sessionStorage.removeItem('editandoDespesaTipo');
+            sessionStorage.removeItem('despesaOriginal');
+            
+            const btn = document.querySelector('#formFamilia button[type="submit"]');
+            btn.textContent = '✅ Cadastrar despesa da família';
+            
+            console.log('Despesa familiar atualizada!');
+            
+        } else {
+            // CADASTRO NOVO
+            const { error } = await window.supabaseClient
+                .from('despesas')
+                .insert([{
+                    id: Date.now(),
+                    tipo: 'familia',
+                    descricao: descricao,
+                    valorTotal: valorTotal,
+                    data: data,
+                    divisao: divisao,
+                    participantes: participantes,
+                    pagador: pagador,
+                    pagamento: pagamento,
+                    banco: pagamento === 'debito' ? banco : null,
+                    cartao: pagamento === 'credito' ? cartao : null,
+                    paga: false,
+                    user_id: user.id
+                }]);
+            
+            if (error) throw error;
+            
+            console.log('Despesa familiar cadastrada!');
         }
         
+        // Limpar formulário
         document.getElementById('descFamilia').value = '';
         document.getElementById('valorFamilia').value = '';
         document.getElementById('dataFamilia').value = '';
@@ -338,34 +385,77 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
-        // Pegar usuário logado
+        const editandoId = sessionStorage.getItem('editandoDespesaId');
+        const despesaOriginal = JSON.parse(sessionStorage.getItem('despesaOriginal'));
+        
         const { data: { user } } = await window.supabaseClient.auth.getUser();
         if (!user) {
             alert('❌ Você precisa estar logado!');
             return;
         }
         
-        const { error } = await window.supabaseClient
-            .from('despesas')
-            .insert([{
-                id: Date.now(),
-                tipo: 'individual',
-                descricao: descricao,
-                valor: valor,
-                data: data,
-                categoria: categoria,
-                pagamento: pagamento,
-                banco: pagamento === 'debito' ? banco : null,
-                cartao: pagamento === 'credito' ? cartao : null,
-                paga: false,
-                user_id: user.id
-            }]);
-        
-        if (error) {
-            alert('❌ Erro ao cadastrar despesa: ' + error.message);
-            return;
+        if (editandoId) {
+            // EDIÇÃO - Atualizar a despesa existente
+            
+            // Se a despesa original estava paga, precisamos reverter os efeitos
+            if (despesaOriginal && despesaOriginal.paga) {
+                if (despesaOriginal.pagamento === 'debito' && despesaOriginal.banco) {
+                    await atualizarSaldoBanco(despesaOriginal.banco, despesaOriginal.valor, 'adicionar');
+                }
+                if (despesaOriginal.pagamento === 'credito' && despesaOriginal.cartao) {
+                    await atualizarLimiteCartao(despesaOriginal.cartao, despesaOriginal.valor, 'remover');
+                }
+            }
+            
+            // Atualizar a despesa
+            const { error } = await window.supabaseClient
+                .from('despesas')
+                .update({
+                    descricao: descricao,
+                    valor: valor,
+                    data: data,
+                    categoria: categoria,
+                    pagamento: pagamento,
+                    banco: pagamento === 'debito' ? banco : null,
+                    cartao: pagamento === 'credito' ? cartao : null
+                })
+                .eq('id', parseInt(editandoId));
+            
+            if (error) throw error;
+            
+            sessionStorage.removeItem('editandoDespesaId');
+            sessionStorage.removeItem('editandoDespesaTipo');
+            sessionStorage.removeItem('despesaOriginal');
+            
+            const btn = document.querySelector('#formIndividual button[type="submit"]');
+            btn.textContent = '✅ Cadastrar despesa individual';
+            
+            console.log('Despesa individual atualizada!');
+            
+        } else {
+            // CADASTRO NOVO
+            const { error } = await window.supabaseClient
+                .from('despesas')
+                .insert([{
+                    id: Date.now(),
+                    tipo: 'individual',
+                    descricao: descricao,
+                    valor: valor,
+                    data: data,
+                    categoria: categoria,
+                    pagamento: pagamento,
+                    banco: pagamento === 'debito' ? banco : null,
+                    cartao: pagamento === 'credito' ? cartao : null,
+                    paga: false,
+                    user_id: user.id
+                }]);
+            
+            if (error) throw error;
+            
+            console.log('Despesa individual cadastrada!');
         }
         
+        // Limpar formulário
         document.getElementById('descIndividual').value = '';
         document.getElementById('valorIndividual').value = '';
         document.getElementById('dataIndividual').value = '';
@@ -376,7 +466,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         await carregarDespesas();
     }
-
     // ===== EVENTOS =====
     if (formFamilia) formFamilia.addEventListener('submit', cadastrarDespesaFamilia);
     if (formIndividual) formIndividual.addEventListener('submit', cadastrarDespesaIndividual);
@@ -442,47 +531,78 @@ window.excluirDespesa = async function(id) {
 window.editarDespesa = async function(id) {
     if (!confirm('Deseja editar esta despesa?')) return;
     
-    const { data: despesa, error } = await window.supabaseClient.from('despesas').select('*').eq('id', id).single();
-    if (error || !despesa) return;
-    
-    if (despesa.tipo === 'familia') {
-        document.getElementById('descFamilia').value = despesa.descricao;
-        document.getElementById('valorFamilia').value = despesa.valorTotal;
-        document.getElementById('dataFamilia').value = despesa.data;
-        document.getElementById('divisaoFamilia').value = despesa.divisao;
-        document.getElementById('pagadorFamilia').value = despesa.pagador;
-        document.getElementById('pagamentoFamilia').value = despesa.pagamento;
+    try {
+        const { data: despesas, error } = await window.supabaseClient
+            .from('despesas')
+            .select('*')
+            .eq('id', id);
         
-        if (despesa.pagamento === 'debito' && despesa.banco) {
-            document.getElementById('containerBancoFamilia').style.display = 'block';
-            document.getElementById('bancoFamilia').value = despesa.banco;
-        } else if (despesa.pagamento === 'credito' && despesa.cartao) {
-            document.getElementById('containerCartaoFamilia').style.display = 'block';
-            document.getElementById('cartaoFamilia').value = despesa.cartao;
+        if (error) throw error;
+        if (!despesas || despesas.length === 0) {
+            alert('❌ Despesa não encontrada!');
+            return;
         }
         
-        document.getElementById('formFamilia').scrollIntoView({ behavior: 'smooth' });
-    } else {
-        document.getElementById('descIndividual').value = despesa.descricao;
-        document.getElementById('valorIndividual').value = despesa.valor;
-        document.getElementById('dataIndividual').value = despesa.data;
-        document.getElementById('categoriaIndividual').value = despesa.categoria;
-        document.getElementById('pagamentoIndividual').value = despesa.pagamento;
+        const despesa = despesas[0];
         
-        if (despesa.pagamento === 'debito' && despesa.banco) {
-            document.getElementById('containerBancoIndividual').style.display = 'block';
-            document.getElementById('bancoIndividual').value = despesa.banco;
-        } else if (despesa.pagamento === 'credito' && despesa.cartao) {
-            document.getElementById('containerCartaoIndividual').style.display = 'block';
-            document.getElementById('cartaoIndividual').value = despesa.cartao;
+        // GUARDAR OS DADOS ORIGINAIS PARA AJUSTAR SALDO/CARTÃO DEPOIS
+        sessionStorage.setItem('editandoDespesaId', id);
+        sessionStorage.setItem('editandoDespesaTipo', despesa.tipo);
+        sessionStorage.setItem('despesaOriginal', JSON.stringify({
+            valor: despesa.valorTotal || despesa.valor,
+            banco: despesa.banco,
+            cartao: despesa.cartao,
+            pagamento: despesa.pagamento,
+            paga: despesa.paga
+        }));
+        
+        if (despesa.tipo === 'familia') {
+            document.getElementById('descFamilia').value = despesa.descricao;
+            document.getElementById('valorFamilia').value = despesa.valorTotal;
+            document.getElementById('dataFamilia').value = despesa.data;
+            document.getElementById('divisaoFamilia').value = despesa.divisao;
+            document.getElementById('pagadorFamilia').value = despesa.pagador;
+            document.getElementById('pagamentoFamilia').value = despesa.pagamento;
+            
+            if (despesa.pagamento === 'debito' && despesa.banco) {
+                document.getElementById('containerBancoFamilia').style.display = 'block';
+                document.getElementById('bancoFamilia').value = despesa.banco;
+            } else if (despesa.pagamento === 'credito' && despesa.cartao) {
+                document.getElementById('containerCartaoFamilia').style.display = 'block';
+                document.getElementById('cartaoFamilia').value = despesa.cartao;
+            }
+            
+            document.getElementById('formFamilia').scrollIntoView({ behavior: 'smooth' });
+            
+        } else {
+            document.getElementById('descIndividual').value = despesa.descricao;
+            document.getElementById('valorIndividual').value = despesa.valor;
+            document.getElementById('dataIndividual').value = despesa.data;
+            document.getElementById('categoriaIndividual').value = despesa.categoria;
+            document.getElementById('pagamentoIndividual').value = despesa.pagamento;
+            
+            if (despesa.pagamento === 'debito' && despesa.banco) {
+                document.getElementById('containerBancoIndividual').style.display = 'block';
+                document.getElementById('bancoIndividual').value = despesa.banco;
+            } else if (despesa.pagamento === 'credito' && despesa.cartao) {
+                document.getElementById('containerCartaoIndividual').style.display = 'block';
+                document.getElementById('cartaoIndividual').value = despesa.cartao;
+            }
+            
+            document.getElementById('formIndividual').scrollIntoView({ behavior: 'smooth' });
         }
         
-        document.getElementById('formIndividual').scrollIntoView({ behavior: 'smooth' });
+        // Mudar texto dos botões
+        if (despesa.tipo === 'familia') {
+            document.querySelector('#formFamilia button[type="submit"]').textContent = '✏️ Atualizar despesa familiar';
+        } else {
+            document.querySelector('#formIndividual button[type="submit"]').textContent = '✏️ Atualizar despesa individual';
+        }
+        
+    } catch (error) {
+        console.error("Erro ao editar despesa:", error);
+        alert("Erro ao editar despesa: " + error.message);
     }
-    
-    await window.supabaseClient.from('despesas').delete().eq('id', id);
-    sessionStorage.setItem('editandoDespesaId', id);
-    sessionStorage.setItem('editandoDespesaTipo', despesa.tipo);
 }
 
 window.cancelarEdicaoDespesa = function(tipo) {

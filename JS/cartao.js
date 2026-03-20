@@ -179,29 +179,37 @@ window.excluirCartao = async function(id) {
 window.editarCartao = async function(id) {
     if (!confirm('Deseja editar este cartão?')) return;
     
-    const { data: cartao, error } = await window.supabaseClient
-        .from('cartoes')
-        .select('*')
-        .eq('id', id)
-        .single();
-    
-    if (error || !cartao) {
-        alert('❌ Cartão não encontrado!');
-        return;
+    try {
+        const { data: cartoes, error } = await window.supabaseClient
+            .from('cartoes')
+            .select('*')
+            .eq('id', id);
+        
+        if (error) throw error;
+        if (!cartoes || cartoes.length === 0) {
+            alert('❌ Cartão não encontrado!');
+            return;
+        }
+        
+        const cartao = cartoes[0];
+        
+        document.getElementById('nomeCartao').value = cartao.nome;
+        document.getElementById('bandeira').value = cartao.bandeira;
+        document.getElementById('limiteTotal').value = cartao.limite;
+        document.getElementById('vencimento').value = cartao.vencimento;
+        
+        // GUARDAR O ID - NÃO REMOVER O CARTÃO!
+        sessionStorage.setItem('editandoCartaoId', id);
+        
+        const btn = document.querySelector('#formCartao button[type="submit"]');
+        btn.textContent = '✏️ Atualizar cartão';
+        
+        document.getElementById('formCartao').scrollIntoView({ behavior: 'smooth' });
+        
+    } catch (error) {
+        console.error("Erro ao editar cartão:", error);
+        alert("Erro ao editar cartão: " + error.message);
     }
-    
-    document.getElementById('nomeCartao').value = cartao.nome;
-    document.getElementById('bandeira').value = cartao.bandeira;
-    document.getElementById('limiteTotal').value = cartao.limite;
-    document.getElementById('vencimento').value = cartao.vencimento;
-    
-    await window.supabaseClient.from('cartoes').delete().eq('id', id);
-    
-    const btn = document.querySelector('#formCartao button[type="submit"]');
-    btn.textContent = '✏️ Atualizar cartão';
-    
-    sessionStorage.setItem('editandoCartaoId', id);
-    document.getElementById('formCartao').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ===== FUNÇÃO DE PAGAMENTO DE FATURA COM OPÇÕES =====
