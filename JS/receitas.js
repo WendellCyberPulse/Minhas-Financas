@@ -8,6 +8,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     console.log("✅ Inicializando receitas com Supabase...");
     
+    // Verificar se o cliente Supabase está disponível
+    if (!window.supabaseClient) {
+        console.error("❌ Supabase client não disponível!");
+        alert("Erro de conexão com o banco de dados.");
+        return;
+    }
+    
     const listaReceitas = document.getElementById('listaReceitas');
     const totalReceitasElement = document.getElementById('totalReceitas');
     const receitasMesElement = document.getElementById('receitasMes');
@@ -22,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const selectBanco = document.getElementById('bancoReceita');
         if (!selectBanco) return;
         
-        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        const { data: bancos, error } = await window.supabaseClient.from('bancos').select('*');
         if (error) return;
         
         bancos.sort((a, b) => a.nome.localeCompare(b.nome));
@@ -42,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function atualizarSaldoBanco(nomeBanco, valor, operacao = 'adicionar') {
-        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        const { data: bancos, error } = await window.supabaseClient.from('bancos').select('*');
         if (error) return;
         
         for (const banco of bancos) {
@@ -51,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ? (banco.saldo || 0) + valor 
                     : (banco.saldo || 0) - valor;
                 
-                await supabase
+                await window.supabaseClient
                     .from('bancos')
                     .update({ saldo: novoSaldo })
                     .eq('id', banco.id);
@@ -180,7 +187,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // ===== FUNÇÕES DE CRUD =====
     async function carregarReceitas() {
-        const { data, error } = await supabase
+        const { data, error } = await window.supabaseClient
             .from('receitas')
             .select('*')
             .order('data', { ascending: false });
@@ -216,11 +223,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!categoria) { alert('❌ Selecione uma categoria!'); return; }
         if (!banco) { alert('❌ Selecione um banco!'); return; }
         
+        // Pegar usuário logado
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (!user) {
+            alert('❌ Você precisa estar logado!');
+            return;
+        }
+        
         const editandoId = sessionStorage.getItem('editandoReceitaId');
         
         if (editandoId) {
             // EDIÇÃO
-            const { error } = await supabase
+            const { error } = await window.supabaseClient
                 .from('receitas')
                 .update({
                     descricao: descricao,
@@ -245,7 +259,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             
         } else {
             // CADASTRO NOVO
-            const { error } = await supabase
+            const { error } = await window.supabaseClient
                 .from('receitas')
                 .insert([{
                     id: Date.now(),
@@ -254,7 +268,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     data: data,
                     categoria: categoria,
                     banco: banco,
-                    fixa: fixa
+                    fixa: fixa,
+                    user_id: user.id
                 }]);
             
             if (error) {
@@ -312,7 +327,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.excluirReceita = async function(id) {
     if (!confirm('Tem certeza que deseja excluir esta receita?')) return;
     
-    const { data: receita, error: findError } = await supabase
+    const { data: receita, error: findError } = await window.supabaseClient
         .from('receitas')
         .select('*')
         .eq('id', id)
@@ -322,7 +337,7 @@ window.excluirReceita = async function(id) {
         await atualizarSaldoBancoSupabase(receita.banco, receita.valor, 'remover');
     }
     
-    const { error } = await supabase
+    const { error } = await window.supabaseClient
         .from('receitas')
         .delete()
         .eq('id', id);
@@ -337,13 +352,13 @@ window.excluirReceita = async function(id) {
 
 // Função auxiliar para atualizar saldo (usada por exclusão)
 async function atualizarSaldoBancoSupabase(nomeBanco, valor, operacao) {
-    const { data: bancos } = await supabase.from('bancos').select('*');
+    const { data: bancos } = await window.supabaseClient.from('bancos').select('*');
     for (const banco of bancos) {
         if (banco.nome.toLowerCase().trim() === nomeBanco.toLowerCase().trim()) {
             const novoSaldo = operacao === 'adicionar' 
                 ? (banco.saldo || 0) + valor 
                 : (banco.saldo || 0) - valor;
-            await supabase.from('bancos').update({ saldo: novoSaldo }).eq('id', banco.id);
+            await window.supabaseClient.from('bancos').update({ saldo: novoSaldo }).eq('id', banco.id);
             break;
         }
     }
@@ -353,7 +368,7 @@ async function atualizarSaldoBancoSupabase(nomeBanco, valor, operacao) {
 window.editarReceita = async function(id) {
     if (!confirm('Deseja editar esta receita?')) return;
     
-    const { data: receita, error } = await supabase
+    const { data: receita, error } = await window.supabaseClient
         .from('receitas')
         .select('*')
         .eq('id', id)
@@ -375,7 +390,7 @@ window.editarReceita = async function(id) {
     await atualizarSaldoBancoSupabase(receita.banco, receita.valor, 'remover');
     
     // Remove receita antiga
-    await supabase.from('receitas').delete().eq('id', id);
+    await window.supabaseClient.from('receitas').delete().eq('id', id);
     
     const btn = document.querySelector('#formReceita button[type="submit"]');
     btn.textContent = '✏️ Atualizar receita';
@@ -390,13 +405,10 @@ window.aplicarFiltros = async function() {
     const ano = document.getElementById('filtroAno').value;
     const categoria = document.getElementById('filtroCategoria').value;
     
-    let query = supabase.from('receitas').select('*');
+    const { data: receitas, error } = await window.supabaseClient
+        .from('receitas')
+        .select('*');
     
-    if (mes !== 'todos') {
-        // Filtro por mês é mais complexo, faremos no frontend
-    }
-    
-    const { data: receitas, error } = await query;
     if (error) return;
     
     const receitasFiltradas = receitas.filter(receita => {

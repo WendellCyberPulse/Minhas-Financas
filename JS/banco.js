@@ -12,60 +12,69 @@ document.addEventListener('DOMContentLoaded', async function() {
     const saldoTotalElement = document.getElementById('saldoTotalBancos');
     const totalBancosElement = document.getElementById('totalBancos');
 
-    // Função para atualizar a lista
+    // Verificar se o cliente Supabase está disponível
+    if (!window.supabaseClient) {
+        console.error("❌ Supabase client não disponível!");
+        alert("Erro de conexão com o banco de dados. Tente recarregar a página.");
+        return;
+    }
+
+    // ===== FUNÇÃO PARA ATUALIZAR A LISTA =====
     async function atualizarListaBancos() {
         if (!listaBanco) return;
         
-        // Buscar bancos do Supabase
-        const { data: bancos, error } = await supabase
-            .from('bancos')
-            .select('*')
-            .order('nome');
-        
-        if (error) {
-            console.error('Erro ao carregar bancos:', error);
-            return;
-        }
-        
-        listaBanco.innerHTML = '';
-        let saldoTotal = 0;
-        
-        if (bancos.length === 0) {
-            listaBanco.innerHTML = `
-                <div class="lista-item">
-                    <span colspan="4" style="text-align: center; color: #888;">
-                        Nenhum banco cadastrado
+        try {
+            // Buscar bancos do Supabase
+            const { data: bancos, error } = await window.supabaseClient
+                .from('bancos')
+                .select('*')
+                .order('nome');
+            
+            if (error) throw error;
+            
+            listaBanco.innerHTML = '';
+            let saldoTotal = 0;
+            
+            if (bancos.length === 0) {
+                listaBanco.innerHTML = `
+                    <div class="lista-item">
+                        <span colspan="4" style="text-align: center; color: #888;">
+                            Nenhum banco cadastrado
+                        </span>
+                    </div>
+                `;
+            }
+            
+            bancos.forEach(banco => {
+                const item = document.createElement('div');
+                item.className = 'lista-item';
+                item.innerHTML = `
+                    <span>${banco.nome}</span>
+                    <span>${banco.tipo}</span>
+                    <span>${formatarMoeda(banco.saldo)}</span>
+                    <span>
+                        <button class="btn-editar" onclick="editarBanco(${banco.id})" data-tooltip="Editar banco">✏️</button>
+                        <button class="btn-excluir" onclick="excluirBanco(${banco.id})" data-tooltip="Excluir banco">🗑️</button>
                     </span>
-                </div>
-            `;
-        }
-        
-        bancos.forEach(banco => {
-            const item = document.createElement('div');
-            item.className = 'lista-item';
-            item.innerHTML = `
-                <span>${banco.nome}</span>
-                <span>${banco.tipo}</span>
-                <span>${formatarMoeda(banco.saldo)}</span>
-                <span>
-                    <button class="btn-editar" onclick="editarBanco(${banco.id})" data-tooltip="Editar banco">✏️</button>
-                    <button class="btn-excluir" onclick="excluirBanco(${banco.id})" data-tooltip="Excluir banco">🗑️</button>
-                </span>
-            `;
-            listaBanco.appendChild(item);
-            saldoTotal += banco.saldo;
-        });
-        
-        if (saldoTotalElement) {
-            saldoTotalElement.textContent = formatarMoeda(saldoTotal);
-        }
-        
-        if (totalBancosElement) {
-            totalBancosElement.textContent = bancos.length;
+                `;
+                listaBanco.appendChild(item);
+                saldoTotal += banco.saldo;
+            });
+            
+            if (saldoTotalElement) {
+                saldoTotalElement.textContent = formatarMoeda(saldoTotal);
+            }
+            
+            if (totalBancosElement) {
+                totalBancosElement.textContent = bancos.length;
+            }
+        } catch (error) {
+            console.error("Erro ao carregar bancos:", error);
+            alert("Erro ao carregar bancos. Verifique sua conexão.");
         }
     }
 
-    // Função para cadastrar banco
+    // ===== FUNÇÃO PARA CADASTRAR/EDITAR BANCO =====
     async function cadastrarBanco(evento) {
         evento.preventDefault();
         
@@ -79,64 +88,71 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         if (saldo < 0) {
-            if (!confirm('Saldo negativo? Deseja continuar?')) {
-                return;
-            }
+            if (!confirm('Saldo negativo? Deseja continuar?')) return;
         }
         
         const editandoId = sessionStorage.getItem('editandoBancoId');
         
-        if (editandoId) {
-            // EDIÇÃO
-            const { error } = await supabase
-                .from('bancos')
-                .update({
-                    nome: nome,
-                    tipo: tipo,
-                    saldo: saldo
-                })
-                .eq('id', parseInt(editandoId));
+        try {
+            // Pegar usuário logado
+            const { data: { user } } = await window.supabaseClient.auth.getUser();
             
-            if (error) {
-                alert('❌ Erro ao atualizar banco: ' + error.message);
+            if (!user && !editandoId) {
+                alert('❌ Você precisa estar logado para cadastrar!');
                 return;
             }
             
-            sessionStorage.removeItem('editandoBancoId');
-            
-            const btn = document.querySelector('#formBanco button[type="submit"]');
-            btn.textContent = '💾 Salvar banco';
-            
-            console.log('Banco atualizado com sucesso!');
-            
-        } else {
-            // CADASTRO NOVO
-            const { error } = await supabase
-                .from('bancos')
-                .insert([{
-                    id: Date.now(),
-                    nome: nome,
-                    tipo: tipo,
-                    saldo: saldo
-                }]);
-            
-            if (error) {
-                alert('❌ Erro ao cadastrar banco: ' + error.message);
-                return;
+            if (editandoId) {
+                // EDIÇÃO (não precisa de user_id)
+                const { error } = await window.supabaseClient
+                    .from('bancos')
+                    .update({
+                        nome: nome,
+                        tipo: tipo,
+                        saldo: saldo
+                    })
+                    .eq('id', parseInt(editandoId));
+                
+                if (error) throw error;
+                
+                sessionStorage.removeItem('editandoBancoId');
+                
+                const btn = document.querySelector('#formBanco button[type="submit"]');
+                btn.textContent = '💾 Salvar banco';
+                
+                console.log('Banco atualizado com sucesso!');
+                
+            } else {
+                // CADASTRO NOVO
+                const { error } = await window.supabaseClient
+                    .from('bancos')
+                    .insert([{
+                        id: Date.now(),
+                        nome: nome,
+                        tipo: tipo,
+                        saldo: saldo,
+                        user_id: user.id  // ← IMPORTANTE!
+                    }]);
+                
+                if (error) throw error;
+                
+                console.log('Banco cadastrado com sucesso!');
             }
             
-            console.log('Banco cadastrado com sucesso!');
+            // Limpa formulário e atualiza lista
+            document.getElementById('nomeBanco').value = '';
+            document.getElementById('tipoConta').value = 'corrente';
+            document.getElementById('saldoAtual').value = '';
+            
+            await atualizarListaBancos();
+            
+        } catch (error) {
+            console.error("Erro ao salvar banco:", error);
+            alert("Erro ao salvar banco: " + error.message);
         }
-        
-        // Limpa formulário e atualiza lista
-        document.getElementById('nomeBanco').value = '';
-        document.getElementById('tipoConta').value = 'corrente';
-        document.getElementById('saldoAtual').value = '';
-        
-        await atualizarListaBancos();
     }
 
-    // Botão cancelar edição
+    // ===== CANCELAR EDIÇÃO =====
     window.cancelarEdicao = function() {
         if (confirm('Cancelar edição?')) {
             sessionStorage.removeItem('editandoBancoId');
@@ -147,59 +163,77 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    // ===== EVENTOS =====
     formBanco.addEventListener('submit', cadastrarBanco);
     await atualizarListaBancos();
 });
 
 // ===== FUNÇÕES GLOBAIS =====
 
+// Excluir banco
 window.excluirBanco = async function(id) {
-    if (confirm('Tem certeza que deseja excluir este banco?')) {
-        const { error } = await supabase
+    if (!confirm('Tem certeza que deseja excluir este banco?')) return;
+    
+    try {
+        const { error } = await window.supabaseClient
             .from('bancos')
             .delete()
             .eq('id', id);
         
-        if (error) {
-            alert('❌ Erro ao excluir banco: ' + error.message);
-            return;
-        }
+        if (error) throw error;
         
+        alert('✅ Banco excluído com sucesso!');
         location.reload();
+    } catch (error) {
+        console.error("Erro ao excluir banco:", error);
+        alert("Erro ao excluir banco: " + error.message);
     }
 }
 
+// Editar banco
 window.editarBanco = async function(id) {
     if (!confirm('Deseja editar este banco?')) return;
     
-    console.log("Editando banco ID:", id);
-    
-    // Buscar dados atuais do banco
-    const { data, error } = await supabase
-        .from('bancos')
-        .select('*')
-        .eq('id', id)
-        .single();
-    
-    if (error || !data) {
-        alert('❌ Banco não encontrado!');
-        return;
+    try {
+        // Buscar dados atuais do banco
+        const { data: bancos, error } = await window.supabaseClient
+            .from('bancos')
+            .select('*')
+            .eq('id', id);
+        
+        if (error) throw error;
+        if (!bancos || bancos.length === 0) {
+            alert('❌ Banco não encontrado!');
+            return;
+        }
+        
+        const banco = bancos[0];
+        
+        // Preencher formulário
+        document.getElementById('nomeBanco').value = banco.nome;
+        document.getElementById('tipoConta').value = banco.tipo;
+        document.getElementById('saldoAtual').value = banco.saldo;
+        
+        // Remover o banco antigo (será recriado ao salvar)
+        const { error: deleteError } = await window.supabaseClient
+            .from('bancos')
+            .delete()
+            .eq('id', id);
+        
+        if (deleteError) throw deleteError;
+        
+        // Mudar texto do botão
+        const btn = document.querySelector('#formBanco button[type="submit"]');
+        btn.textContent = '✏️ Atualizar banco';
+        
+        // Guardar ID da edição
+        sessionStorage.setItem('editandoBancoId', id);
+        
+        // Rolar até o formulário
+        document.getElementById('formBanco').scrollIntoView({ behavior: 'smooth' });
+        
+    } catch (error) {
+        console.error("Erro ao editar banco:", error);
+        alert("Erro ao editar banco: " + error.message);
     }
-    
-    const banco = data;
-    
-    // Preencher formulário
-    document.getElementById('nomeBanco').value = banco.nome;
-    document.getElementById('tipoConta').value = banco.tipo;
-    document.getElementById('saldoAtual').value = banco.saldo;
-    
-    // Mudar texto do botão
-    const btn = document.querySelector('#formBanco button[type="submit"]');
-    btn.textContent = '✏️ Atualizar banco';
-    
-    // Guardar ID da edição
-    sessionStorage.setItem('editandoBancoId', id);
-    
-    // Rolar até o formulário
-    document.getElementById('formBanco').scrollIntoView({ behavior: 'smooth' });
 }

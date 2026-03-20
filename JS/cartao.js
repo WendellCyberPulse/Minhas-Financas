@@ -8,6 +8,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     console.log("✅ Inicializando cartões com Supabase...");
     
+    // Verificar se o cliente Supabase está disponível
+    if (!window.supabaseClient) {
+        console.error("❌ Supabase client não disponível!");
+        alert("Erro de conexão com o banco de dados.");
+        return;
+    }
+    
     const listaCartoes = document.getElementById('listaCartoes');
     const limiteTotalElement = document.getElementById('limiteTotalGeral');
     const totalUsadoElement = document.getElementById('totalUsado');
@@ -19,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!listaCartoes) return;
         
         // Buscar cartões do Supabase
-        const { data: cartoes, error } = await supabase
+        const { data: cartoes, error } = await window.supabaseClient
             .from('cartoes')
             .select('*')
             .order('nome');
@@ -92,11 +99,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
+        // Pegar usuário logado
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (!user) {
+            alert('❌ Você precisa estar logado!');
+            return;
+        }
+        
         const editandoId = sessionStorage.getItem('editandoCartaoId');
         
         if (editandoId) {
             // EDIÇÃO
-            const { error } = await supabase
+            const { error } = await window.supabaseClient
                 .from('cartoes')
                 .update({
                     nome: nome,
@@ -120,7 +134,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             
         } else {
             // CADASTRO NOVO
-            const { error } = await supabase
+            const { error } = await window.supabaseClient
                 .from('cartoes')
                 .insert([{
                     id: Date.now(),
@@ -128,7 +142,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     bandeira: bandeira,
                     limite: limite,
                     vencimento: vencimento,
-                    usado: 0
+                    usado: 0,
+                    user_id: user.id
                 }]);
             
             if (error) {
@@ -169,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Excluir cartão
 window.excluirCartao = async function(id) {
     if (confirm('Tem certeza que deseja excluir este cartão?')) {
-        const { error } = await supabase
+        const { error } = await window.supabaseClient
             .from('cartoes')
             .delete()
             .eq('id', id);
@@ -187,7 +202,7 @@ window.excluirCartao = async function(id) {
 window.editarCartao = async function(id) {
     if (!confirm('Deseja editar este cartão?')) return;
     
-    const { data: cartao, error } = await supabase
+    const { data: cartao, error } = await window.supabaseClient
         .from('cartoes')
         .select('*')
         .eq('id', id)
@@ -203,6 +218,9 @@ window.editarCartao = async function(id) {
     document.getElementById('limiteTotal').value = cartao.limite;
     document.getElementById('vencimento').value = cartao.vencimento;
     
+    // Remover o cartão antigo (será recriado ao salvar)
+    await window.supabaseClient.from('cartoes').delete().eq('id', id);
+    
     const btn = document.querySelector('#formCartao button[type="submit"]');
     btn.textContent = '✏️ Atualizar cartão';
     
@@ -213,7 +231,7 @@ window.editarCartao = async function(id) {
 // Pagar fatura
 window.pagarFatura = async function(id) {
     // Buscar cartão
-    const { data: cartao, error: errCartao } = await supabase
+    const { data: cartao, error: errCartao } = await window.supabaseClient
         .from('cartoes')
         .select('*')
         .eq('id', id)
@@ -229,7 +247,7 @@ window.pagarFatura = async function(id) {
     if (!confirm(`💰 Pagar fatura de ${formatarMoeda(valorFatura)} do cartão ${cartao.nome}?`)) return;
     
     // Buscar bancos
-    const { data: bancos, error: errBancos } = await supabase
+    const { data: bancos, error: errBancos } = await window.supabaseClient
         .from('bancos')
         .select('*');
     
@@ -254,20 +272,23 @@ window.pagarFatura = async function(id) {
         if (!confirm(`⚠️ Saldo insuficiente! Continuar?`)) return;
     }
     
+    // Pegar usuário logado
+    const { data: { user } } = await window.supabaseClient.auth.getUser();
+    
     // 1. Atualizar saldo do banco
-    await supabase
+    await window.supabaseClient
         .from('bancos')
         .update({ saldo: bancoSelecionado.saldo - valorFatura })
         .eq('id', bancoSelecionado.id);
     
     // 2. Zerar usado do cartão
-    await supabase
+    await window.supabaseClient
         .from('cartoes')
         .update({ usado: 0 })
         .eq('id', id);
     
     // 3. Registrar despesa
-    await supabase
+    await window.supabaseClient
         .from('despesas')
         .insert([{
             id: Date.now(),
@@ -278,7 +299,8 @@ window.pagarFatura = async function(id) {
             categoria: 'fatura_cartao',
             pagamento: 'debito',
             banco: bancoSelecionado.nome,
-            paga: true
+            paga: true,
+            user_id: user ? user.id : null
         }]);
     
     alert(`✅ Fatura de ${formatarMoeda(valorFatura)} paga!`);

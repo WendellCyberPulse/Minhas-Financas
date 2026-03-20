@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     console.log("✅ Inicializando despesas com Supabase...");
     
+    // Verificar se o cliente Supabase está disponível
+    if (!window.supabaseClient) {
+        console.error("❌ Supabase client não disponível!");
+        alert("Erro de conexão com o banco de dados.");
+        return;
+    }
+    
     const listaDespesas = document.getElementById('listaDespesas');
     const totalDespesasElement = document.getElementById('totalDespesas');
     const totalFamiliaElement = document.getElementById('totalFamilia');
@@ -18,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // ===== FUNÇÕES DE APOIO =====
     async function carregarBancosNoSelect() {
         const selects = document.querySelectorAll('.select-banco');
-        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        const { data: bancos, error } = await window.supabaseClient.from('bancos').select('*');
         
         if (error) return;
         
@@ -40,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function carregarCartoesNoSelect() {
         const selects = document.querySelectorAll('.select-cartao');
-        const { data: cartoes, error } = await supabase.from('cartoes').select('*');
+        const { data: cartoes, error } = await window.supabaseClient.from('cartoes').select('*');
         
         if (error) return;
         
@@ -78,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // ===== FUNÇÕES DE ATUALIZAÇÃO DE SALDO =====
     async function atualizarSaldoBanco(nomeBanco, valor, operacao = 'remover') {
-        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        const { data: bancos, error } = await window.supabaseClient.from('bancos').select('*');
         if (error) return;
         
         for (const banco of bancos) {
@@ -87,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ? (banco.saldo || 0) + valor 
                     : (banco.saldo || 0) - valor;
                 
-                await supabase
+                await window.supabaseClient
                     .from('bancos')
                     .update({ saldo: novoSaldo })
                     .eq('id', banco.id);
@@ -97,13 +104,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function atualizarLimiteCartao(nomeCartao, valor, operacao = 'adicionar') {
-        const { data: cartoes, error } = await supabase.from('cartoes').select('*');
+        const { data: cartoes, error } = await window.supabaseClient.from('cartoes').select('*');
         if (error) return;
         
         for (const cartao of cartoes) {
             if (cartao.nome.toLowerCase().trim() === nomeCartao.toLowerCase().trim()) {
                 const novoUsado = (cartao.usado || 0) + (operacao === 'adicionar' ? valor : -valor);
-                await supabase
+                await window.supabaseClient
                     .from('cartoes')
                     .update({ usado: novoUsado })
                     .eq('id', cartao.id);
@@ -116,7 +123,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     async function atualizarListaDespesas() {
         if (!listaDespesas) return;
         
-        const { data: despesas, error } = await supabase
+        const { data: despesas, error } = await window.supabaseClient
             .from('despesas')
             .select('*')
             .order('data', { ascending: false });
@@ -162,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function atualizarResumoDespesas() {
-        const { data: despesas, error } = await supabase.from('despesas').select('*');
+        const { data: despesas, error } = await window.supabaseClient.from('despesas').select('*');
         if (error) return;
         
         let totalGeral = 0, totalFamilia = 0, totalIndividual = 0;
@@ -182,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     async function calcularAcertos() {
         if (!acertosContainer) return;
         
-        const { data: despesas, error } = await supabase.from('despesas').select('*');
+        const { data: despesas, error } = await window.supabaseClient.from('despesas').select('*');
         if (error) return;
         
         const pessoas = {};
@@ -261,16 +268,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
+        // Pegar usuário logado
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (!user) {
+            alert('❌ Você precisa estar logado!');
+            return;
+        }
+        
         const participantes = ['João', 'Maria', 'Você'].slice(0, divisao);
         
-        const { error } = await supabase
+        const { error } = await window.supabaseClient
             .from('despesas')
             .insert([{
                 id: Date.now(),
                 tipo: 'familia',
                 descricao: descricao,
                 valorTotal: valorTotal,
-                valorPorPessoa: valorTotal / divisao,
                 data: data,
                 divisao: divisao,
                 participantes: participantes,
@@ -278,7 +291,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 pagamento: pagamento,
                 banco: pagamento === 'debito' ? banco : null,
                 cartao: pagamento === 'credito' ? cartao : null,
-                paga: false
+                paga: false,
+                user_id: user.id
             }]);
         
         if (error) {
@@ -324,7 +338,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
-        const { error } = await supabase
+        // Pegar usuário logado
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (!user) {
+            alert('❌ Você precisa estar logado!');
+            return;
+        }
+        
+        const { error } = await window.supabaseClient
             .from('despesas')
             .insert([{
                 id: Date.now(),
@@ -336,7 +357,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 pagamento: pagamento,
                 banco: pagamento === 'debito' ? banco : null,
                 cartao: pagamento === 'credito' ? cartao : null,
-                paga: false
+                paga: false,
+                user_id: user.id
             }]);
         
         if (error) {
@@ -381,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.marcarComoPaga = async function(id) {
     if (!confirm('Confirmar pagamento desta despesa?')) return;
     
-    const { data: despesa, error } = await supabase
+    const { data: despesa, error } = await window.supabaseClient
         .from('despesas')
         .select('*')
         .eq('id', id)
@@ -392,35 +414,35 @@ window.marcarComoPaga = async function(id) {
     const valor = despesa.valorTotal || despesa.valor || 0;
     
     if (despesa.pagamento === 'debito' && despesa.banco) {
-        const { data: bancos } = await supabase.from('bancos').select('*');
+        const { data: bancos } = await window.supabaseClient.from('bancos').select('*');
         const banco = bancos.find(b => b.nome.toLowerCase().trim() === despesa.banco.toLowerCase().trim());
         if (banco) {
-            await supabase.from('bancos').update({ saldo: banco.saldo - valor }).eq('id', banco.id);
+            await window.supabaseClient.from('bancos').update({ saldo: banco.saldo - valor }).eq('id', banco.id);
         }
     }
     
     if (despesa.pagamento === 'credito' && despesa.cartao) {
-        const { data: cartoes } = await supabase.from('cartoes').select('*');
+        const { data: cartoes } = await window.supabaseClient.from('cartoes').select('*');
         const cartao = cartoes.find(c => c.nome.toLowerCase().trim() === despesa.cartao.toLowerCase().trim());
         if (cartao) {
-            await supabase.from('cartoes').update({ usado: (cartao.usado || 0) + valor }).eq('id', cartao.id);
+            await window.supabaseClient.from('cartoes').update({ usado: (cartao.usado || 0) + valor }).eq('id', cartao.id);
         }
     }
     
-    await supabase.from('despesas').update({ paga: true }).eq('id', id);
+    await window.supabaseClient.from('despesas').update({ paga: true }).eq('id', id);
     location.reload();
 }
 
 window.excluirDespesa = async function(id) {
     if (!confirm('Tem certeza que deseja excluir esta despesa?')) return;
-    await supabase.from('despesas').delete().eq('id', id);
+    await window.supabaseClient.from('despesas').delete().eq('id', id);
     location.reload();
 }
 
 window.editarDespesa = async function(id) {
     if (!confirm('Deseja editar esta despesa?')) return;
     
-    const { data: despesa, error } = await supabase.from('despesas').select('*').eq('id', id).single();
+    const { data: despesa, error } = await window.supabaseClient.from('despesas').select('*').eq('id', id).single();
     if (error || !despesa) return;
     
     if (despesa.tipo === 'familia') {
@@ -458,7 +480,7 @@ window.editarDespesa = async function(id) {
         document.getElementById('formIndividual').scrollIntoView({ behavior: 'smooth' });
     }
     
-    await supabase.from('despesas').delete().eq('id', id);
+    await window.supabaseClient.from('despesas').delete().eq('id', id);
     sessionStorage.setItem('editandoDespesaId', id);
     sessionStorage.setItem('editandoDespesaTipo', despesa.tipo);
 }
