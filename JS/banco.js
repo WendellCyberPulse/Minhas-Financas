@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // ===== FUNÇÃO PARA ATUALIZAR A LISTA =====
-    async function atualizarListaBancos() {
+   async function atualizarListaBancos() {
         if (!listaBanco) return;
         
         try {
@@ -68,9 +68,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (totalBancosElement) {
                 totalBancosElement.textContent = bancos.length;
             }
+            
         } catch (error) {
             console.error("Erro ao carregar bancos:", error);
-            alert("Erro ao carregar bancos. Verifique sua conexão.");
         }
     }
 
@@ -94,16 +94,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         const editandoId = sessionStorage.getItem('editandoBancoId');
         
         try {
-            // Pegar usuário logado
             const { data: { user } } = await window.supabaseClient.auth.getUser();
             
             if (!user && !editandoId) {
-                alert('❌ Você precisa estar logado para cadastrar!');
+                alert('❌ Você precisa estar logado!');
                 return;
             }
             
             if (editandoId) {
-                // EDIÇÃO (não precisa de user_id)
+                // EDIÇÃO - Atualizar o banco existente
                 const { error } = await window.supabaseClient
                     .from('bancos')
                     .update({
@@ -111,7 +110,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         tipo: tipo,
                         saldo: saldo
                     })
-                    .eq('id', parseInt(editandoId));
+                    .eq('id', parseInt(editandoId))
+                    .eq('user_id', user.id); // Garantir que só atualiza se for do usuário
                 
                 if (error) throw error;
                 
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         nome: nome,
                         tipo: tipo,
                         saldo: saldo,
-                        user_id: user.id  // ← IMPORTANTE!
+                        user_id: user.id
                     }]);
                 
                 if (error) throw error;
@@ -139,11 +139,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.log('Banco cadastrado com sucesso!');
             }
             
-            // Limpa formulário e atualiza lista
+            // Limpa formulário
             document.getElementById('nomeBanco').value = '';
             document.getElementById('tipoConta').value = 'corrente';
             document.getElementById('saldoAtual').value = '';
             
+            // Recarrega a lista
             await atualizarListaBancos();
             
         } catch (error) {
@@ -191,6 +192,7 @@ window.excluirBanco = async function(id) {
 }
 
 // Editar banco
+// Editar banco (CORRIGIDA)
 window.editarBanco = async function(id) {
     if (!confirm('Deseja editar este banco?')) return;
     
@@ -214,20 +216,13 @@ window.editarBanco = async function(id) {
         document.getElementById('tipoConta').value = banco.tipo;
         document.getElementById('saldoAtual').value = banco.saldo;
         
-        // Remover o banco antigo (será recriado ao salvar)
-        const { error: deleteError } = await window.supabaseClient
-            .from('bancos')
-            .delete()
-            .eq('id', id);
-        
-        if (deleteError) throw deleteError;
+        // NÃO REMOVER O BANCO ANTIGO! Vamos atualizar diretamente
+        // Apenas guardar o ID para saber que é edição
+        sessionStorage.setItem('editandoBancoId', id);
         
         // Mudar texto do botão
         const btn = document.querySelector('#formBanco button[type="submit"]');
         btn.textContent = '✏️ Atualizar banco';
-        
-        // Guardar ID da edição
-        sessionStorage.setItem('editandoBancoId', id);
         
         // Rolar até o formulário
         document.getElementById('formBanco').scrollIntoView({ behavior: 'smooth' });
