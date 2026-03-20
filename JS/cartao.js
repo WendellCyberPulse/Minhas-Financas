@@ -1,31 +1,48 @@
 // ========== CARTÕES ==========
 console.log("💳 Página de cartões carregada");
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const formCartao = document.getElementById('formCartao');
     
-    if (!formCartao) return; // Sai se não for página de cartões
+    if (!formCartao) return;
     
-    console.log("✅ Inicializando cartões...");
+    console.log("✅ Inicializando cartões com Supabase...");
     
-    let cartoes = [];
     const listaCartoes = document.getElementById('listaCartoes');
     const limiteTotalElement = document.getElementById('limiteTotalGeral');
     const totalUsadoElement = document.getElementById('totalUsado');
     const disponivelElement = document.getElementById('disponivel');
-    const totalCartoesElement = document.getElementById('totalCartoes'); // NOVO
+    const totalCartoesElement = document.getElementById('totalCartoes');
 
-    // ===== FUNÇÕES LOCAIS =====
-    function atualizarListaCartoes() {
+    // ===== FUNÇÃO PARA ATUALIZAR LISTA =====
+    async function atualizarListaCartoes() {
         if (!listaCartoes) return;
         
-        // Ordenar por nome (opcional)
-        cartoes.sort((a, b) => a.nome.localeCompare(b.nome));
+        // Buscar cartões do Supabase
+        const { data: cartoes, error } = await supabase
+            .from('cartoes')
+            .select('*')
+            .order('nome');
+        
+        if (error) {
+            console.error('Erro ao carregar cartões:', error);
+            return;
+        }
         
         listaCartoes.innerHTML = '';
         
         let limiteTotal = 0;
         let totalUsado = 0;
+        
+        if (cartoes.length === 0) {
+            listaCartoes.innerHTML = `
+                <div class="lista-item">
+                    <span colspan="7" style="text-align: center; color: #888;">
+                        Nenhum cartão cadastrado
+                    </span>
+                </div>
+            `;
+        }
         
         cartoes.forEach(cartao => {
             const item = document.createElement('div');
@@ -41,8 +58,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span>${formatarMoeda(usado)}</span>
                 <span>${formatarMoeda(disponivel)}</span>
                 <span>Dia ${cartao.vencimento}</span>
-               <span>
-                    <button class="btn-pagar-fatura" onclick="pagarFatura(${cartao.id})" data-tooltip="Pagar fatura">💰 Pagar Fatura</button>
+                <span>
+                    ${usado > 0 ? `<button class="btn-pagar-fatura" onclick="pagarFatura(${cartao.id})" data-tooltip="Pagar fatura">💰 Pagar Fatura</button>` : ''}
                     <button class="btn-editar" onclick="editarCartao(${cartao.id})">✏️</button>
                     <button class="btn-excluir" onclick="excluirCartao(${cartao.id})">🗑️</button>
                 </span>
@@ -55,35 +72,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const disponivelTotal = limiteTotal - totalUsado;
         
-        if (limiteTotalElement) {
-            limiteTotalElement.textContent = formatarMoeda(limiteTotal);
-        }
-        if (totalUsadoElement) {
-            totalUsadoElement.textContent = formatarMoeda(totalUsado);
-        }
-        if (disponivelElement) {
-           disponivelElement.textContent = formatarMoeda(disponivelTotal);
-        }
-        
-        // Mostrar total de cartões
-        if (totalCartoesElement) {
-            totalCartoesElement.textContent = cartoes.length;
-        }
+        if (limiteTotalElement) limiteTotalElement.textContent = formatarMoeda(limiteTotal);
+        if (totalUsadoElement) totalUsadoElement.textContent = formatarMoeda(totalUsado);
+        if (disponivelElement) disponivelElement.textContent = formatarMoeda(disponivelTotal);
+        if (totalCartoesElement) totalCartoesElement.textContent = cartoes.length;
     }
 
-    function carregarCartoes() {
-        const dadosSalvos = localStorage.getItem('cartoes');
-        if (dadosSalvos) {
-            cartoes = JSON.parse(dadosSalvos);
-            atualizarListaCartoes();
-        }
-    }
-
-    function salvarCartoes() {
-        localStorage.setItem('cartoes', JSON.stringify(cartoes));
-    }
-
-    function cadastrarCartao(evento) {
+    // ===== FUNÇÃO PARA CADASTRAR CARTÃO =====
+    async function cadastrarCartao(evento) {
         evento.preventDefault();
         
         const nome = document.getElementById('nomeCartao').value.trim();
@@ -91,72 +87,68 @@ document.addEventListener('DOMContentLoaded', function() {
         const limite = parseFloat(document.getElementById('limiteTotal').value) || 0;
         const vencimento = document.getElementById('vencimento').value;
         
-        // Validação
         if (!nome || !bandeira || limite === 0 || !vencimento) {
             alert('Preencha todos os campos corretamente!');
             return;
         }
         
-        // Verifica se está editando (tem ID guardado)
         const editandoId = sessionStorage.getItem('editandoCartaoId');
         
-        // Pega cartões existentes
-        let cartoesExistentes = JSON.parse(localStorage.getItem('cartoes')) || [];
-        
         if (editandoId) {
-            // É EDIÇÃO
-            console.log("Finalizando edição do cartão");
+            // EDIÇÃO
+            const { error } = await supabase
+                .from('cartoes')
+                .update({
+                    nome: nome,
+                    bandeira: bandeira,
+                    limite: limite,
+                    vencimento: vencimento
+                })
+                .eq('id', parseInt(editandoId));
             
-            const cartaoAtualizado = {
-                id: Date.now(), // Novo ID
-                nome: nome,
-                bandeira: bandeira,
-                limite: limite,
-                vencimento: vencimento,
-                usado: 0 // Começa com 0 usado
-            };
+            if (error) {
+                alert('❌ Erro ao atualizar cartão: ' + error.message);
+                return;
+            }
             
-            cartoesExistentes.push(cartaoAtualizado);
-            localStorage.setItem('cartoes', JSON.stringify(cartoesExistentes));
-            
-            // Limpa o ID de edição
             sessionStorage.removeItem('editandoCartaoId');
             
-            // Volta o texto do botão
             const btn = document.querySelector('#formCartao button[type="submit"]');
             btn.textContent = '💾 Salvar cartão';
             
-            console.log('Cartão atualizado:', cartaoAtualizado);
+            console.log('Cartão atualizado!');
             
         } else {
-            // É CADASTRO NOVO
-            const novoCartao = {
-                id: Date.now(),
-                nome: nome,
-                bandeira: bandeira,
-                limite: limite,
-                vencimento: vencimento,
-                usado: 0
-            };
+            // CADASTRO NOVO
+            const { error } = await supabase
+                .from('cartoes')
+                .insert([{
+                    id: Date.now(),
+                    nome: nome,
+                    bandeira: bandeira,
+                    limite: limite,
+                    vencimento: vencimento,
+                    usado: 0
+                }]);
             
-            cartoesExistentes.push(novoCartao);
-            localStorage.setItem('cartoes', JSON.stringify(cartoesExistentes));
+            if (error) {
+                alert('❌ Erro ao cadastrar cartão: ' + error.message);
+                return;
+            }
             
-            console.log('Cartão cadastrado:', novoCartao);
+            console.log('Cartão cadastrado!');
         }
         
-        // Recarrega a lista
-        cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
-        atualizarListaCartoes();
-        
-        // Limpa o formulário
+        // Limpa formulário e atualiza lista
         document.getElementById('nomeCartao').value = '';
         document.getElementById('bandeira').value = 'visa';
         document.getElementById('limiteTotal').value = '';
         document.getElementById('vencimento').value = '5';
+        
+        await atualizarListaCartoes();
     }
 
-    // NOVO: Cancelar edição
+    // Cancelar edição
     window.cancelarEdicaoCartao = function() {
         if (confirm('Cancelar edição?')) {
             sessionStorage.removeItem('editandoCartaoId');
@@ -168,65 +160,66 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ===== EVENTOS =====
     formCartao.addEventListener('submit', cadastrarCartao);
-    carregarCartoes();
+    await atualizarListaCartoes();
 });
 
-// ===== FUNÇÕES GLOBAIS (fora do DOMContentLoaded) =====
+// ===== FUNÇÕES GLOBAIS =====
 
 // Excluir cartão
-window.excluirCartao = function(id) {
+window.excluirCartao = async function(id) {
     if (confirm('Tem certeza que deseja excluir este cartão?')) {
-        let cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
-        cartoes = cartoes.filter(cartao => cartao.id !== id);
-        localStorage.setItem('cartoes', JSON.stringify(cartoes));
+        const { error } = await supabase
+            .from('cartoes')
+            .delete()
+            .eq('id', id);
+        
+        if (error) {
+            alert('❌ Erro ao excluir cartão: ' + error.message);
+            return;
+        }
+        
         location.reload();
     }
 }
 
 // Editar cartão
-window.editarCartao = function(id) {
+window.editarCartao = async function(id) {
     if (!confirm('Deseja editar este cartão?')) return;
     
-    console.log("Editando cartão ID:", id);
+    const { data: cartao, error } = await supabase
+        .from('cartoes')
+        .select('*')
+        .eq('id', id)
+        .single();
     
-    let cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
-    const cartao = cartoes.find(c => c.id === id);
-    
-    if (cartao) {
-        console.log("Cartão encontrado:", cartao);
-        
-        // Preenche o formulário com os dados do cartão
-        document.getElementById('nomeCartao').value = cartao.nome;
-        document.getElementById('bandeira').value = cartao.bandeira;
-        document.getElementById('limiteTotal').value = cartao.limite;
-        document.getElementById('vencimento').value = cartao.vencimento;
-        
-        // Remove o cartão antigo do array
-        const novosCartoes = cartoes.filter(c => c.id !== id);
-        localStorage.setItem('cartoes', JSON.stringify(novosCartoes));
-        
-        // Muda o texto do botão para indicar que é atualização
-        const btn = document.querySelector('#formCartao button[type="submit"]');
-        btn.textContent = '✏️ Atualizar cartão';
-        
-        // Guarda o ID original para referência
-        sessionStorage.setItem('editandoCartaoId', id);
-        
-        // Rola suavemente até o formulário
-        document.getElementById('formCartao').scrollIntoView({ behavior: 'smooth' });
-    } else {
-        console.error("Cartão não encontrado:", id);
+    if (error || !cartao) {
+        alert('❌ Cartão não encontrado!');
+        return;
     }
+    
+    document.getElementById('nomeCartao').value = cartao.nome;
+    document.getElementById('bandeira').value = cartao.bandeira;
+    document.getElementById('limiteTotal').value = cartao.limite;
+    document.getElementById('vencimento').value = cartao.vencimento;
+    
+    const btn = document.querySelector('#formCartao button[type="submit"]');
+    btn.textContent = '✏️ Atualizar cartão';
+    
+    sessionStorage.setItem('editandoCartaoId', id);
+    document.getElementById('formCartao').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ===== FUNÇÃO PARA PAGAR FATURA DO CARTÃO =====
-window.pagarFatura = function(id) {
-    let cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
-    const cartao = cartoes.find(c => c.id === id);
+// Pagar fatura
+window.pagarFatura = async function(id) {
+    // Buscar cartão
+    const { data: cartao, error: errCartao } = await supabase
+        .from('cartoes')
+        .select('*')
+        .eq('id', id)
+        .single();
     
-    if (!cartao || cartao.usado === 0) {
+    if (error || !cartao || cartao.usado === 0) {
         alert('❌ Este cartão não tem fatura pendente!');
         return;
     }
@@ -235,17 +228,18 @@ window.pagarFatura = function(id) {
     
     if (!confirm(`💰 Pagar fatura de ${formatarMoeda(valorFatura)} do cartão ${cartao.nome}?`)) return;
     
-    // Buscar bancos disponíveis
-    let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
+    // Buscar bancos
+    const { data: bancos, error: errBancos } = await supabase
+        .from('bancos')
+        .select('*');
     
-    if (bancos.length === 0) {
-        alert('❌ Nenhum banco cadastrado para pagar a fatura!');
+    if (errBancos || bancos.length === 0) {
+        alert('❌ Nenhum banco cadastrado!');
         return;
     }
     
-    // Criar select para escolher o banco
     const nomesBancos = bancos.map(b => b.nome).join(', ');
-    const bancoEscolhido = prompt(`Escolha o banco para pagar a fatura:\nBancos disponíveis: ${nomesBancos}\n\nDigite o nome do banco:`);
+    const bancoEscolhido = prompt(`Escolha o banco:\n${nomesBancos}\n\nDigite o nome:`);
     
     if (!bancoEscolhido) return;
     
@@ -257,45 +251,36 @@ window.pagarFatura = function(id) {
     }
     
     if (bancoSelecionado.saldo < valorFatura) {
-        if (!confirm(`⚠️ Saldo insuficiente! Banco ${bancoSelecionado.nome} tem apenas ${formatarMoeda(bancoSelecionado.saldo)}. Deseja pagar mesmo assim (ficará negativo)?`)) {
-            return;
-        }
+        if (!confirm(`⚠️ Saldo insuficiente! Continuar?`)) return;
     }
     
-    // 1. REMOVER valor do banco
-    bancos = bancos.map(b => {
-        if (b.id === bancoSelecionado.id) {
-            b.saldo = (b.saldo || 0) - valorFatura;
-        }
-        return b;
-    });
-    localStorage.setItem('bancos', JSON.stringify(bancos));
+    // 1. Atualizar saldo do banco
+    await supabase
+        .from('bancos')
+        .update({ saldo: bancoSelecionado.saldo - valorFatura })
+        .eq('id', bancoSelecionado.id);
     
-    // 2. ZERAR usado do cartão
-    cartoes = cartoes.map(c => {
-        if (c.id === id) {
-            c.usado = 0;
-        }
-        return c;
-    });
-    localStorage.setItem('cartoes', JSON.stringify(cartoes));
+    // 2. Zerar usado do cartão
+    await supabase
+        .from('cartoes')
+        .update({ usado: 0 })
+        .eq('id', id);
     
-    // 3. REGISTRAR como despesa (opcional)
-    let despesas = JSON.parse(localStorage.getItem('despesas')) || [];
-    const novaDespesa = {
-        id: Date.now(),
-        tipo: 'individual',
-        descricao: `Pagamento fatura ${cartao.nome}`,
-        valor: valorFatura,
-        data: new Date().toISOString().split('T')[0],
-        categoria: 'fatura_cartao',
-        pagamento: 'debito',
-        banco: bancoSelecionado.nome,
-        paga: true
-    };
-    despesas.push(novaDespesa);
-    localStorage.setItem('despesas', JSON.stringify(despesas));
+    // 3. Registrar despesa
+    await supabase
+        .from('despesas')
+        .insert([{
+            id: Date.now(),
+            tipo: 'individual',
+            descricao: `Pagamento fatura ${cartao.nome}`,
+            valor: valorFatura,
+            data: new Date().toISOString().split('T')[0],
+            categoria: 'fatura_cartao',
+            pagamento: 'debito',
+            banco: bancoSelecionado.nome,
+            paga: true
+        }]);
     
-    alert(`✅ Fatura de ${formatarMoeda(valorFatura)} paga com sucesso!`);
+    alert(`✅ Fatura de ${formatarMoeda(valorFatura)} paga!`);
     location.reload();
 }

@@ -1,25 +1,26 @@
 // ========== DESPESAS ==========
 console.log("📝 Página de despesas carregada");
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const formFamilia = document.getElementById('formFamilia');
     const formIndividual = document.getElementById('formIndividual');
     
-    if (!formFamilia && !formIndividual) return; // Sai se não for página de despesas
+    if (!formFamilia && !formIndividual) return;
     
-    console.log("✅ Inicializando despesas...");
+    console.log("✅ Inicializando despesas com Supabase...");
     
-    let despesas = [];
     const listaDespesas = document.getElementById('listaDespesas');
     const totalDespesasElement = document.getElementById('totalDespesas');
     const totalFamiliaElement = document.getElementById('totalFamilia');
     const totalIndividualElement = document.getElementById('totalIndividual');
-    const acertosContainer = document.getElementById('acertosContainer'); // NOVO
+    const acertosContainer = document.getElementById('acertosContainer');
 
     // ===== FUNÇÕES DE APOIO =====
-    function carregarBancosNoSelect() {
+    async function carregarBancosNoSelect() {
         const selects = document.querySelectorAll('.select-banco');
-        const bancos = JSON.parse(localStorage.getItem('bancos')) || [];
+        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        
+        if (error) return;
         
         selects.forEach(select => {
             select.innerHTML = '<option value="">Selecione um banco...</option>';
@@ -37,9 +38,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function carregarCartoesNoSelect() {
+    async function carregarCartoesNoSelect() {
         const selects = document.querySelectorAll('.select-cartao');
-        const cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
+        const { data: cartoes, error } = await supabase.from('cartoes').select('*');
+        
+        if (error) return;
         
         selects.forEach(select => {
             select.innerHTML = '<option value="">Selecione um cartão...</option>';
@@ -59,7 +62,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function carregarPessoasNoSelect() {
-        // Pega pessoas cadastradas (pode vir do localStorage futuramente)
         const pessoas = ['João', 'Maria', 'Você'];
         const selects = document.querySelectorAll('.select-pagador');
         
@@ -75,46 +77,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== FUNÇÕES DE ATUALIZAÇÃO DE SALDO =====
-    function atualizarSaldoBanco(nomeBanco, valor, operacao = 'remover') {
-        let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
+    async function atualizarSaldoBanco(nomeBanco, valor, operacao = 'remover') {
+        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        if (error) return;
         
-        bancos = bancos.map(banco => {
+        for (const banco of bancos) {
             if (banco.nome.toLowerCase().trim() === nomeBanco.toLowerCase().trim()) {
-                if (operacao === 'adicionar') {
-                    banco.saldo = (banco.saldo || 0) + valor;
-                } else {
-                    banco.saldo = (banco.saldo || 0) - valor;
-                }
+                const novoSaldo = operacao === 'adicionar' 
+                    ? (banco.saldo || 0) + valor 
+                    : (banco.saldo || 0) - valor;
+                
+                await supabase
+                    .from('bancos')
+                    .update({ saldo: novoSaldo })
+                    .eq('id', banco.id);
+                break;
             }
-            return banco;
-        });
-        
-        localStorage.setItem('bancos', JSON.stringify(bancos));
+        }
     }
 
-    function atualizarLimiteCartao(nomeCartao, valor, operacao = 'adicionar') {
-        let cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
+    async function atualizarLimiteCartao(nomeCartao, valor, operacao = 'adicionar') {
+        const { data: cartoes, error } = await supabase.from('cartoes').select('*');
+        if (error) return;
         
-        cartoes = cartoes.map(cartao => {
+        for (const cartao of cartoes) {
             if (cartao.nome.toLowerCase().trim() === nomeCartao.toLowerCase().trim()) {
-                cartao.usado = (cartao.usado || 0) + (operacao === 'adicionar' ? valor : -valor);
+                const novoUsado = (cartao.usado || 0) + (operacao === 'adicionar' ? valor : -valor);
+                await supabase
+                    .from('cartoes')
+                    .update({ usado: novoUsado })
+                    .eq('id', cartao.id);
+                break;
             }
-            return cartao;
-        });
-        
-        localStorage.setItem('cartoes', JSON.stringify(cartoes));
+        }
     }
 
     // ===== FUNÇÕES DE ATUALIZAÇÃO DA TELA =====
-    function atualizarListaDespesas() {
+    async function atualizarListaDespesas() {
         if (!listaDespesas) return;
         
-        // Ordenar por data (mais recente primeiro)
-        const despesasOrdenadas = [...despesas].sort((a, b) => new Date(b.data) - new Date(a.data));
+        const { data: despesas, error } = await supabase
+            .from('despesas')
+            .select('*')
+            .order('data', { ascending: false });
+        
+        if (error) return;
         
         listaDespesas.innerHTML = '';
         
-        despesasOrdenadas.forEach(despesa => {
+        if (despesas.length === 0) {
+            listaDespesas.innerHTML = `
+                <div class="lista-item">
+                    <span colspan="6" style="text-align: center; color: #888;">
+                        Nenhuma despesa cadastrada
+                    </span>
+                </div>
+            `;
+            return;
+        }
+        
+        despesas.forEach(despesa => {
             const item = document.createElement('div');
             item.className = 'lista-item';
             
@@ -139,38 +161,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function atualizarResumoDespesas() {
-        let totalGeral = 0;
-        let totalFamilia = 0;
-        let totalIndividual = 0;
+    async function atualizarResumoDespesas() {
+        const { data: despesas, error } = await supabase.from('despesas').select('*');
+        if (error) return;
+        
+        let totalGeral = 0, totalFamilia = 0, totalIndividual = 0;
         
         despesas.forEach(despesa => {
-            // Só considera despesas pagas no total? Ou todas?
             const valor = despesa.valorTotal || despesa.valor || 0;
             totalGeral += valor;
-            
-            if (despesa.tipo === 'familia') {
-                totalFamilia += valor;
-            } else {
-                totalIndividual += valor;
-            }
+            if (despesa.tipo === 'familia') totalFamilia += valor;
+            else totalIndividual += valor;
         });
         
-        if (totalDespesasElement) {
-            totalDespesasElement.textContent = formatarMoeda(totalGeral);
-        }
-        if (totalFamiliaElement) {
-            totalFamiliaElement.textContent = formatarMoeda(totalFamilia);
-        }
-        if (totalIndividualElement) {
-            totalIndividualElement.textContent = formatarMoeda(totalIndividual);
-        }
+        if (totalDespesasElement) totalDespesasElement.textContent = formatarMoeda(totalGeral);
+        if (totalFamiliaElement) totalFamiliaElement.textContent = formatarMoeda(totalFamilia);
+        if (totalIndividualElement) totalIndividualElement.textContent = formatarMoeda(totalIndividual);
     }
 
-    function calcularAcertos() {
+    async function calcularAcertos() {
         if (!acertosContainer) return;
         
-        // Mapa de pessoas: quem pagou quanto e quem deve quanto
+        const { data: despesas, error } = await supabase.from('despesas').select('*');
+        if (error) return;
+        
         const pessoas = {};
         
         despesas.forEach(despesa => {
@@ -179,18 +193,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const divididoPor = despesa.divisao || 3;
                 const valorPorPessoa = total / divididoPor;
                 
-                // Quem pagou tem a receber dos outros
                 if (!pessoas[despesa.pagador]) {
                     pessoas[despesa.pagador] = { paga: 0, recebe: 0 };
                 }
                 
-                // Os outros devem para quem pagou
                 for (let i = 0; i < divididoPor; i++) {
-                    const pessoa = despesa.participantes[i];
-                    if (pessoa !== despesa.pagador) {
-                        if (!pessoas[pessoa]) {
-                            pessoas[pessoa] = { paga: 0, recebe: 0 };
-                        }
+                    const pessoa = despesa.participantes?.[i];
+                    if (pessoa && pessoa !== despesa.pagador) {
+                        if (!pessoas[pessoa]) pessoas[pessoa] = { paga: 0, recebe: 0 };
                         pessoas[pessoa].paga += valorPorPessoa;
                     }
                 }
@@ -198,13 +208,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Gerar HTML dos acertos
         let html = '<div class="cards-container">';
-        
         Object.keys(pessoas).forEach(pessoa => {
             const saldo = pessoas[pessoa].recebe - pessoas[pessoa].paga;
             const classe = saldo > 0 ? 'status-pago' : 'status-pendente';
-            
             html += `
                 <div class="card">
                     <h3>${pessoa}</h3>
@@ -213,31 +220,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         });
-        
         html += '</div>';
         acertosContainer.innerHTML = html;
     }
 
     // ===== FUNÇÕES DE CRUD =====
-    function carregarDespesas() {
-        const dadosSalvos = localStorage.getItem('despesas');
-        if (dadosSalvos) {
-            despesas = JSON.parse(dadosSalvos);
-            atualizarListaDespesas();
-            atualizarResumoDespesas();
-            calcularAcertos();
-        }
-        carregarBancosNoSelect();
-        carregarCartoesNoSelect();
+    async function carregarDespesas() {
+        await atualizarListaDespesas();
+        await atualizarResumoDespesas();
+        await calcularAcertos();
+        await carregarBancosNoSelect();
+        await carregarCartoesNoSelect();
         carregarPessoasNoSelect();
     }
 
-    function salvarDespesas() {
-        localStorage.setItem('despesas', JSON.stringify(despesas));
-    }
-
-    // ===== FUNÇÃO PARA CADASTRAR DESPESA (FAMÍLIA) =====
-    function cadastrarDespesaFamilia(evento) {
+    // ===== CADASTRO DESPESA FAMÍLIA =====
+    async function cadastrarDespesaFamilia(evento) {
         evento.preventDefault();
         
         const descricao = document.getElementById('descFamilia').value.trim();
@@ -249,7 +247,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const banco = document.getElementById('bancoFamilia').value;
         const cartao = document.getElementById('cartaoFamilia').value;
         
-        // Validações
         if (!descricao || valorTotal <= 0 || !data || !pagador || !pagamento) {
             alert('❌ Preencha todos os campos obrigatórios!');
             return;
@@ -259,41 +256,36 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('❌ Selecione o banco para débito!');
             return;
         }
-        
         if (pagamento === 'credito' && !cartao) {
             alert('❌ Selecione o cartão de crédito!');
             return;
         }
         
-        // Criar lista de participantes (simplificado)
         const participantes = ['João', 'Maria', 'Você'].slice(0, divisao);
         
-        const novaDespesa = {
-            id: Date.now(),
-            tipo: 'familia',
-            descricao: descricao,
-            valorTotal: valorTotal,
-            valorPorPessoa: valorTotal / divisao,
-            data: data,
-            divisao: divisao,
-            participantes: participantes,
-            pagador: pagador,
-            pagamento: pagamento,
-            banco: pagamento === 'debito' ? banco : null,
-            cartao: pagamento === 'credito' ? cartao : null,
-            paga: false // Começa como não paga
-        };
+        const { error } = await supabase
+            .from('despesas')
+            .insert([{
+                id: Date.now(),
+                tipo: 'familia',
+                descricao: descricao,
+                valorTotal: valorTotal,
+                valorPorPessoa: valorTotal / divisao,
+                data: data,
+                divisao: divisao,
+                participantes: participantes,
+                pagador: pagador,
+                pagamento: pagamento,
+                banco: pagamento === 'debito' ? banco : null,
+                cartao: pagamento === 'credito' ? cartao : null,
+                paga: false
+            }]);
         
-        let despesasExistentes = JSON.parse(localStorage.getItem('despesas')) || [];
-        despesasExistentes.push(novaDespesa);
-        localStorage.setItem('despesas', JSON.stringify(despesasExistentes));
+        if (error) {
+            alert('❌ Erro ao cadastrar despesa: ' + error.message);
+            return;
+        }
         
-        // Recarrega dados
-        despesas = despesasExistentes;
-        atualizarListaDespesas();
-        atualizarResumoDespesas();
-        
-        // Limpa formulário
         document.getElementById('descFamilia').value = '';
         document.getElementById('valorFamilia').value = '';
         document.getElementById('dataFamilia').value = '';
@@ -303,11 +295,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('bancoFamilia').value = '';
         document.getElementById('cartaoFamilia').value = '';
         
-        console.log('Despesa familiar cadastrada:', novaDespesa);
+        await carregarDespesas();
     }
 
-    // ===== FUNÇÃO PARA CADASTRAR DESPESA (INDIVIDUAL) =====
-    function cadastrarDespesaIndividual(evento) {
+    // ===== CADASTRO DESPESA INDIVIDUAL =====
+    async function cadastrarDespesaIndividual(evento) {
         evento.preventDefault();
         
         const descricao = document.getElementById('descIndividual').value.trim();
@@ -318,7 +310,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const banco = document.getElementById('bancoIndividual').value;
         const cartao = document.getElementById('cartaoIndividual').value;
         
-        // Validações
         if (!descricao || valor <= 0 || !data || !categoria || !pagamento) {
             alert('❌ Preencha todos os campos obrigatórios!');
             return;
@@ -328,34 +319,31 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('❌ Selecione o banco para débito!');
             return;
         }
-        
         if (pagamento === 'credito' && !cartao) {
             alert('❌ Selecione o cartão de crédito!');
             return;
         }
         
-        const novaDespesa = {
-            id: Date.now(),
-            tipo: 'individual',
-            descricao: descricao,
-            valor: valor,
-            data: data,
-            categoria: categoria,
-            pagamento: pagamento,
-            banco: pagamento === 'debito' ? banco : null,
-            cartao: pagamento === 'credito' ? cartao : null,
-            paga: false // Começa como não paga
-        };
+        const { error } = await supabase
+            .from('despesas')
+            .insert([{
+                id: Date.now(),
+                tipo: 'individual',
+                descricao: descricao,
+                valor: valor,
+                data: data,
+                categoria: categoria,
+                pagamento: pagamento,
+                banco: pagamento === 'debito' ? banco : null,
+                cartao: pagamento === 'credito' ? cartao : null,
+                paga: false
+            }]);
         
-        let despesasExistentes = JSON.parse(localStorage.getItem('despesas')) || [];
-        despesasExistentes.push(novaDespesa);
-        localStorage.setItem('despesas', JSON.stringify(despesasExistentes));
+        if (error) {
+            alert('❌ Erro ao cadastrar despesa: ' + error.message);
+            return;
+        }
         
-        despesas = despesasExistentes;
-        atualizarListaDespesas();
-        atualizarResumoDespesas();
-        
-        // Limpa formulário
         document.getElementById('descIndividual').value = '';
         document.getElementById('valorIndividual').value = '';
         document.getElementById('dataIndividual').value = '';
@@ -364,136 +352,78 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('bancoIndividual').value = '';
         document.getElementById('cartaoIndividual').value = '';
         
-        console.log('Despesa individual cadastrada:', novaDespesa);
+        await carregarDespesas();
     }
 
     // ===== EVENTOS =====
-    if (formFamilia) {
-        formFamilia.addEventListener('submit', cadastrarDespesaFamilia);
-    }
-    
-    if (formIndividual) {
-        formIndividual.addEventListener('submit', cadastrarDespesaIndividual);
-    }
+    if (formFamilia) formFamilia.addEventListener('submit', cadastrarDespesaFamilia);
+    if (formIndividual) formIndividual.addEventListener('submit', cadastrarDespesaIndividual);
 
-    // Eventos para mostrar/esconder campos de banco/cartão
     document.getElementById('pagamentoFamilia')?.addEventListener('change', function() {
         const divBanco = document.getElementById('containerBancoFamilia');
         const divCartao = document.getElementById('containerCartaoFamilia');
-        
-        if (this.value === 'debito') {
-            divBanco.style.display = 'block';
-            divCartao.style.display = 'none';
-        } else if (this.value === 'credito') {
-            divBanco.style.display = 'none';
-            divCartao.style.display = 'block';
-        } else {
-            divBanco.style.display = 'none';
-            divCartao.style.display = 'none';
-        }
+        divBanco.style.display = this.value === 'debito' ? 'block' : 'none';
+        divCartao.style.display = this.value === 'credito' ? 'block' : 'none';
     });
 
     document.getElementById('pagamentoIndividual')?.addEventListener('change', function() {
         const divBanco = document.getElementById('containerBancoIndividual');
         const divCartao = document.getElementById('containerCartaoIndividual');
-        
-        if (this.value === 'debito') {
-            divBanco.style.display = 'block';
-            divCartao.style.display = 'none';
-        } else if (this.value === 'credito') {
-            divBanco.style.display = 'none';
-            divCartao.style.display = 'block';
-        } else {
-            divBanco.style.display = 'none';
-            divCartao.style.display = 'none';
-        }
+        divBanco.style.display = this.value === 'debito' ? 'block' : 'none';
+        divCartao.style.display = this.value === 'credito' ? 'block' : 'none';
     });
 
-    // Carregar dados iniciais
-    carregarDespesas();
+    await carregarDespesas();
 });
 
 // ===== FUNÇÕES GLOBAIS =====
 
-// Marcar despesa como paga
-window.marcarComoPaga = function(id) {
+window.marcarComoPaga = async function(id) {
     if (!confirm('Confirmar pagamento desta despesa?')) return;
     
-    let despesas = JSON.parse(localStorage.getItem('despesas')) || [];
-    const despesa = despesas.find(d => d.id === id);
+    const { data: despesa, error } = await supabase
+        .from('despesas')
+        .select('*')
+        .eq('id', id)
+        .single();
     
-    if (!despesa || despesa.paga) return;
+    if (error || !despesa || despesa.paga) return;
     
-    // Marcar como paga
-    despesa.paga = true;
-    
-    // Pega o valor (pode ser valorTotal para família ou valor para individual)
     const valor = despesa.valorTotal || despesa.valor || 0;
     
-    // Se for débito, remove do banco
     if (despesa.pagamento === 'debito' && despesa.banco) {
-        let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
-        
-        bancos = bancos.map(b => {
-            if (b.nome.toLowerCase().trim() === despesa.banco.toLowerCase().trim()) {
-                b.saldo = (b.saldo || 0) - valor;
-                console.log(`✅ Débito: ${formatarMoeda(valor)} removido de ${b.nome}`);
-            }
-            return b;
-        });
-        localStorage.setItem('bancos', JSON.stringify(bancos));
-    }
-    
-    // Se for crédito, adiciona ao usado do cartão
-    if (despesa.pagamento === 'credito' && despesa.cartao) {
-        let cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
-        let cartaoEncontrado = false;
-        
-        cartoes = cartoes.map(c => {
-            if (c.nome.toLowerCase().trim() === despesa.cartao.toLowerCase().trim()) {
-                c.usado = (c.usado || 0) + valor;
-                console.log(`✅ Crédito: ${formatarMoeda(valor)} adicionado ao usado de ${c.nome}`);
-                cartaoEncontrado = true;
-            }
-            return c;
-        });
-        
-        if (!cartaoEncontrado) {
-            console.warn(`⚠️ Cartão "${despesa.cartao}" não encontrado`);
+        const { data: bancos } = await supabase.from('bancos').select('*');
+        const banco = bancos.find(b => b.nome.toLowerCase().trim() === despesa.banco.toLowerCase().trim());
+        if (banco) {
+            await supabase.from('bancos').update({ saldo: banco.saldo - valor }).eq('id', banco.id);
         }
-        
-        localStorage.setItem('cartoes', JSON.stringify(cartoes));
     }
     
-    // Salva despesas atualizadas
-    localStorage.setItem('despesas', JSON.stringify(despesas));
+    if (despesa.pagamento === 'credito' && despesa.cartao) {
+        const { data: cartoes } = await supabase.from('cartoes').select('*');
+        const cartao = cartoes.find(c => c.nome.toLowerCase().trim() === despesa.cartao.toLowerCase().trim());
+        if (cartao) {
+            await supabase.from('cartoes').update({ usado: (cartao.usado || 0) + valor }).eq('id', cartao.id);
+        }
+    }
     
-    console.log('✅ Despesa marcada como paga:', despesa);
+    await supabase.from('despesas').update({ paga: true }).eq('id', id);
     location.reload();
 }
 
-// Excluir despesa
-window.excluirDespesa = function(id) {
+window.excluirDespesa = async function(id) {
     if (!confirm('Tem certeza que deseja excluir esta despesa?')) return;
-    
-    let despesas = JSON.parse(localStorage.getItem('despesas')) || [];
-    despesas = despesas.filter(d => d.id !== id);
-    localStorage.setItem('despesas', JSON.stringify(despesas));
-    
+    await supabase.from('despesas').delete().eq('id', id);
     location.reload();
 }
 
-// Editar despesa
-window.editarDespesa = function(id) {
+window.editarDespesa = async function(id) {
     if (!confirm('Deseja editar esta despesa?')) return;
     
-    let despesas = JSON.parse(localStorage.getItem('despesas')) || [];
-    const despesa = despesas.find(d => d.id === id);
-    
-    if (!despesa) return;
+    const { data: despesa, error } = await supabase.from('despesas').select('*').eq('id', id).single();
+    if (error || !despesa) return;
     
     if (despesa.tipo === 'familia') {
-        // Preencher formulário família
         document.getElementById('descFamilia').value = despesa.descricao;
         document.getElementById('valorFamilia').value = despesa.valorTotal;
         document.getElementById('dataFamilia').value = despesa.data;
@@ -501,7 +431,6 @@ window.editarDespesa = function(id) {
         document.getElementById('pagadorFamilia').value = despesa.pagador;
         document.getElementById('pagamentoFamilia').value = despesa.pagamento;
         
-        // Mostrar campo correto (banco/cartão)
         if (despesa.pagamento === 'debito' && despesa.banco) {
             document.getElementById('containerBancoFamilia').style.display = 'block';
             document.getElementById('bancoFamilia').value = despesa.banco;
@@ -510,18 +439,14 @@ window.editarDespesa = function(id) {
             document.getElementById('cartaoFamilia').value = despesa.cartao;
         }
         
-        // Rolar até o formulário
         document.getElementById('formFamilia').scrollIntoView({ behavior: 'smooth' });
-        
     } else {
-        // Preencher formulário individual
         document.getElementById('descIndividual').value = despesa.descricao;
         document.getElementById('valorIndividual').value = despesa.valor;
         document.getElementById('dataIndividual').value = despesa.data;
         document.getElementById('categoriaIndividual').value = despesa.categoria;
         document.getElementById('pagamentoIndividual').value = despesa.pagamento;
         
-        // Mostrar campo correto
         if (despesa.pagamento === 'debito' && despesa.banco) {
             document.getElementById('containerBancoIndividual').style.display = 'block';
             document.getElementById('bancoIndividual').value = despesa.banco;
@@ -533,23 +458,11 @@ window.editarDespesa = function(id) {
         document.getElementById('formIndividual').scrollIntoView({ behavior: 'smooth' });
     }
     
-    // Remover despesa antiga
-    const novasDespesas = despesas.filter(d => d.id !== id);
-    localStorage.setItem('despesas', JSON.stringify(novasDespesas));
-    
-    // Guardar ID para referência
+    await supabase.from('despesas').delete().eq('id', id);
     sessionStorage.setItem('editandoDespesaId', id);
     sessionStorage.setItem('editandoDespesaTipo', despesa.tipo);
-    
-    // Mudar texto dos botões
-    if (despesa.tipo === 'familia') {
-        document.querySelector('#formFamilia button[type="submit"]').textContent = '✏️ Atualizar despesa familiar';
-    } else {
-        document.querySelector('#formIndividual button[type="submit"]').textContent = '✏️ Atualizar despesa individual';
-    }
 }
 
-// Função para cancelar edição
 window.cancelarEdicaoDespesa = function(tipo) {
     if (confirm('Cancelar edição?')) {
         sessionStorage.removeItem('editandoDespesaId');

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Finanças Pessoais</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./js/supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>🔐 Minhas Finanças</h1>
+    </header>
+
+    <div class="form-container" style="max-width: 400px; margin: 50px auto;">
+        <h2 style="text-align: center;">Login</h2>
+        
+        <form id="formLogin">
+            <div>
+                <label>Email:</label><br>
+                <input type="email" id="loginEmail" required>
+            </div>
+            
+            <div>
+                <label>Senha:</label><br>
+                <input type="password" id="loginSenha" required>
+            </div>
+            
+            <button type="submit" style="width: 100%; margin-top: 10px;">🔑 Entrar</button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="abrirCadastro()" style="background-color: #4CAF50;">📝 Criar conta</button>
+        </div>
+    </div>
+
+    <div id="modalCadastro" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center;">
+        <div class="form-container" style="max-width: 400px; width: 90%;">
+            <h2>📝 Criar Conta</h2>
+            <form id="formCadastro">
+                <div>
+                    <label>Email:</label><br>
+                    <input type="email" id="cadastroEmail" required>
+                </div>
+                <div>
+                    <label>Senha:</label><br>
+                    <input type="password" id="cadastroSenha" required>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="flex: 1;">✅ Cadastrar</button>
+                    <button type="button" onclick="fecharCadastro()" style="flex: 1; background-color: #666;">❌ Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Login
+        document.getElementById('formLogin').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const senha = document.getElementById('loginSenha').value;
+            await fazerLogin(email, senha);
+        });
+
+        // Cadastro
+        document.getElementById('formCadastro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('cadastroEmail').value;
+            const senha = document.getElementById('cadastroSenha').value;
+            await criarConta(email, senha);
+            fecharCadastro();
+        });
+
+        function abrirCadastro() {
+            document.getElementById('modalCadastro').style.display = 'flex';
+        }
+
+        function fecharCadastro() {
+            document.getElementById('modalCadastro').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

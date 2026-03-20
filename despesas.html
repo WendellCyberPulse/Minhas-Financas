@@ -20,13 +20,17 @@
 
     <!-- Meta tags gerais -->
     <meta name="theme-color" content="#af4c4c">
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./js/supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
         <h1>📝 Minhas Despesas</h1>
     </header>
 
-     <nav>
+    <nav>
         <a href="index.html">🔰 Início</a>
         <a href="bancos.html">🏦 Bancos</a>
         <a href="receitas.html">💵Receitas</a>
@@ -34,6 +38,7 @@
         <a href="cartao.html">💳 Cartão</a>
         <a href="RelatorioFamilia.html">👥 Relatório Família</a>
         <a href="backup.html">💾 Backup</a>
+        <a href="#" onclick="fazerLogout()" style="color: #ff9800;">🚪 Sair</a>
     </nav>
 
        <!-- RESUMO DAS DESPESAS DO MÊS -->

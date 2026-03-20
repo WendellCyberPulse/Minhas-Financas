@@ -49,3 +49,28 @@ function mostrarErro(mensagem) {
 function confirmarAcao(mensagem) {
     return confirm('⚠️ ' + mensagem);
 }
+
+// ===== AUTENTICAÇÃO (CORRIGIDO) =====
+async function carregarDadosUsuario() {
+    // Usar o cliente global que criamos no supabase-config.js
+    if (!window.supabaseClient) {
+        console.error("❌ Supabase client não disponível!");
+        return null;
+    }
+    
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (session) {
+            console.log('✅ Usuário logado:', session.user.email);
+            return session.user.id;
+        }
+        console.log('⚠️ Nenhum usuário logado');
+        return null;
+    } catch (error) {
+        console.error("Erro ao carregar usuário:", error);
+        return null;
+    }
+}
+
+// Chamar no início de cada página (com tratamento de erro)
+carregarDadosUsuario().catch(console.error);

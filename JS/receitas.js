@@ -1,28 +1,30 @@
 // ========== RECEITAS ==========
 console.log("📥 Página de receitas carregada");
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const formReceita = document.getElementById('formReceita');
     
-    if (!formReceita) return; // Sai se não for página de receitas
+    if (!formReceita) return;
     
-    console.log("✅ Inicializando receitas...");
+    console.log("✅ Inicializando receitas com Supabase...");
     
-    let receitas = [];
     const listaReceitas = document.getElementById('listaReceitas');
     const totalReceitasElement = document.getElementById('totalReceitas');
     const receitasMesElement = document.getElementById('receitasMes');
     const mediaReceitasElement = document.getElementById('mediaReceitas');
     const receitasFixasContainer = document.getElementById('receitasFixas');
-    const totalReceitasCount = document.getElementById('totalReceitasCount'); // NOVO
+    const totalReceitasCount = document.getElementById('totalReceitasCount');
+
+    let receitas = [];
 
     // ===== FUNÇÕES DE APOIO =====
-    function carregarBancosNoSelect() {
+    async function carregarBancosNoSelect() {
         const selectBanco = document.getElementById('bancoReceita');
         if (!selectBanco) return;
         
-        const bancos = JSON.parse(localStorage.getItem('bancos')) || [];
-
+        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        if (error) return;
+        
         bancos.sort((a, b) => a.nome.localeCompare(b.nome));
         
         selectBanco.innerHTML = '<option value="">Selecione um banco...</option>';
@@ -39,39 +41,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function atualizarSaldoBanco(nomeBanco, valor, operacao = 'adicionar') {
-        let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
-        let bancoEncontrado = false;
+    async function atualizarSaldoBanco(nomeBanco, valor, operacao = 'adicionar') {
+        const { data: bancos, error } = await supabase.from('bancos').select('*');
+        if (error) return;
         
-        bancos = bancos.map(banco => {
+        for (const banco of bancos) {
             if (banco.nome.toLowerCase().trim() === nomeBanco.toLowerCase().trim()) {
-                bancoEncontrado = true;
-                if (operacao === 'adicionar') {
-                    banco.saldo = (banco.saldo || 0) + valor;
-                    console.log(`✅ +${formatarMoeda(valor)} em ${banco.nome}`);
-                } else {
-                    banco.saldo = (banco.saldo || 0) - valor;
-                    console.log(`✅ -${formatarMoeda(valor)} em ${banco.nome}`);
-                }
+                const novoSaldo = operacao === 'adicionar' 
+                    ? (banco.saldo || 0) + valor 
+                    : (banco.saldo || 0) - valor;
+                
+                await supabase
+                    .from('bancos')
+                    .update({ saldo: novoSaldo })
+                    .eq('id', banco.id);
+                console.log(`${operacao === 'adicionar' ? '✅ +' : '❌ -'}${formatarMoeda(valor)} em ${banco.nome}`);
+                break;
             }
-            return banco;
-        });
-        
-        if (!bancoEncontrado) {
-            console.warn(`⚠️ Banco "${nomeBanco}" não encontrado`);
         }
-        
-        localStorage.setItem('bancos', JSON.stringify(bancos));
     }
 
     // ===== FUNÇÕES DE ATUALIZAÇÃO DA TELA =====
-    function atualizarListaReceitas() {
+    async function atualizarListaReceitas() {
         if (!listaReceitas) return;
         
-        // Ordenar por data (mais recente primeiro)
         const receitasOrdenadas = [...receitas].sort((a, b) => new Date(b.data) - new Date(a.data));
         
         listaReceitas.innerHTML = '';
+        
+        if (receitasOrdenadas.length === 0) {
+            listaReceitas.innerHTML = `
+                <div class="lista-item">
+                    <span colspan="6" style="text-align: center; color: #888;">
+                        Nenhuma receita cadastrada
+                    </span>
+                </div>
+            `;
+            return;
+        }
         
         receitasOrdenadas.forEach(receita => {
             const item = document.createElement('div');
@@ -110,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Calcular média dos últimos 3 meses
         const tresMesesAtras = new Date();
         tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
         
@@ -127,19 +133,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const media = contador > 0 ? somaUltimos3 / contador : 0;
         
-        // Atualizar elementos na tela
-        if (totalReceitasElement) {
-            totalReceitasElement.textContent = formatarMoeda(totalGeral);
-        }
-        if (receitasMesElement) {
-            receitasMesElement.textContent = formatarMoeda(totalMes);
-        }
-        if (mediaReceitasElement) {
-            mediaReceitasElement.textContent = formatarMoeda(media);
-        }
-        if (totalReceitasCount) {
-            totalReceitasCount.textContent = receitas.length;
-        }
+        if (totalReceitasElement) totalReceitasElement.textContent = formatarMoeda(totalGeral);
+        if (receitasMesElement) receitasMesElement.textContent = formatarMoeda(totalMes);
+        if (mediaReceitasElement) mediaReceitasElement.textContent = formatarMoeda(media);
+        if (totalReceitasCount) totalReceitasCount.textContent = receitas.length;
     }
 
     function mostrarReceitasFixas() {
@@ -153,7 +150,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Agrupar por descrição (para não repetir)
         const fixasAgrupadas = {};
         fixas.forEach(fixa => {
             if (!fixasAgrupadas[fixa.descricao]) {
@@ -183,22 +179,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== FUNÇÕES DE CRUD =====
-    function carregarReceitas() {
-        const dadosSalvos = localStorage.getItem('receitas');
-        if (dadosSalvos) {
-            receitas = JSON.parse(dadosSalvos);
-            atualizarListaReceitas();
-            atualizarResumoReceitas();
-            mostrarReceitasFixas();
+    async function carregarReceitas() {
+        const { data, error } = await supabase
+            .from('receitas')
+            .select('*')
+            .order('data', { ascending: false });
+        
+        if (error) {
+            console.error('Erro ao carregar receitas:', error);
+            return;
         }
-        carregarBancosNoSelect();
+        
+        receitas = data || [];
+        await atualizarListaReceitas();
+        atualizarResumoReceitas();
+        mostrarReceitasFixas();
+        await carregarBancosNoSelect();
+        
+        // Atualizar anos do filtro
+        atualizarAnosFiltro();
     }
 
-    function salvarReceitas() {
-        localStorage.setItem('receitas', JSON.stringify(receitas));
-    }
-
-    function cadastrarReceita(evento) {
+    async function cadastrarReceita(evento) {
         evento.preventDefault();
         
         const descricao = document.getElementById('descReceita').value.trim();
@@ -208,92 +210,63 @@ document.addEventListener('DOMContentLoaded', function() {
         const banco = document.getElementById('bancoReceita').value;
         const fixa = document.getElementById('receitaFixa').checked;
         
-        // Validações
-        if (!descricao) {
-            alert('❌ Digite uma descrição!');
-            return;
-        }
-        if (valor <= 0) {
-            alert('❌ Valor deve ser maior que zero!');
-            return;
-        }
-        if (!data) {
-            alert('❌ Selecione a data!');
-            return;
-        }
-        if (!categoria) {
-            alert('❌ Selecione uma categoria!');
-            return;
-        }
-        if (!banco) {
-            alert('❌ Selecione um banco!');
-            return;
-        }
+        if (!descricao) { alert('❌ Digite uma descrição!'); return; }
+        if (valor <= 0) { alert('❌ Valor deve ser maior que zero!'); return; }
+        if (!data) { alert('❌ Selecione a data!'); return; }
+        if (!categoria) { alert('❌ Selecione uma categoria!'); return; }
+        if (!banco) { alert('❌ Selecione um banco!'); return; }
         
-        // Verifica se está editando
         const editandoId = sessionStorage.getItem('editandoReceitaId');
         
-        // Pega receitas existentes
-        let receitasExistentes = JSON.parse(localStorage.getItem('receitas')) || [];
-        
         if (editandoId) {
-            // É EDIÇÃO
-            console.log("Finalizando edição da receita");
+            // EDIÇÃO
+            const { error } = await supabase
+                .from('receitas')
+                .update({
+                    descricao: descricao,
+                    valor: valor,
+                    data: data,
+                    categoria: categoria,
+                    banco: banco,
+                    fixa: fixa
+                })
+                .eq('id', parseInt(editandoId));
             
-            const receitaAtualizada = {
-                id: Date.now(),
-                descricao: descricao,
-                valor: valor,
-                data: data,
-                categoria: categoria,
-                banco: banco,
-                fixa: fixa
-            };
+            if (error) {
+                alert('❌ Erro ao atualizar receita: ' + error.message);
+                return;
+            }
             
-            receitasExistentes.push(receitaAtualizada);
-            localStorage.setItem('receitas', JSON.stringify(receitasExistentes));
-            
-            // Atualizar saldo do banco (já removemos a antiga na editarReceita)
-            atualizarSaldoBanco(banco, valor, 'adicionar');
-            
-            // Limpa sessão
+            await atualizarSaldoBanco(banco, valor, 'adicionar');
             sessionStorage.removeItem('editandoReceitaId');
             
-            // Volta texto do botão
             const btn = document.querySelector('#formReceita button[type="submit"]');
             btn.textContent = '✅ Cadastrar receita';
             
-            console.log('Receita atualizada:', receitaAtualizada);
-            
         } else {
-            // É CADASTRO NOVO
-            const novaReceita = {
-                id: Date.now(),
-                descricao: descricao,
-                valor: valor,
-                data: data,
-                categoria: categoria,
-                banco: banco,
-                fixa: fixa
-            };
+            // CADASTRO NOVO
+            const { error } = await supabase
+                .from('receitas')
+                .insert([{
+                    id: Date.now(),
+                    descricao: descricao,
+                    valor: valor,
+                    data: data,
+                    categoria: categoria,
+                    banco: banco,
+                    fixa: fixa
+                }]);
             
-            receitasExistentes.push(novaReceita);
-            localStorage.setItem('receitas', JSON.stringify(receitasExistentes));
+            if (error) {
+                alert('❌ Erro ao cadastrar receita: ' + error.message);
+                return;
+            }
             
-            // Atualizar saldo do banco
-            atualizarSaldoBanco(banco, valor, 'adicionar');
-            
-            console.log('Receita cadastrada:', novaReceita);
+            await atualizarSaldoBanco(banco, valor, 'adicionar');
         }
         
-        // Recarrega dados
-        receitas = JSON.parse(localStorage.getItem('receitas')) || [];
-        atualizarListaReceitas();
-        atualizarResumoReceitas();
-        mostrarReceitasFixas();
-        carregarBancosNoSelect(); // Atualiza saldos no select
+        await carregarReceitas();
         
-        // Limpa formulário
         document.getElementById('descReceita').value = '';
         document.getElementById('valorReceita').value = '';
         document.getElementById('dataReceita').value = '';
@@ -317,7 +290,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== EVENTOS =====
     formReceita.addEventListener('submit', cadastrarReceita);
     
-    // Evento para nova categoria
     document.getElementById('categoriaReceita').addEventListener('change', function() {
         if (this.value === 'nova') {
             const novaCategoria = prompt('Digite o nome da nova categoria:');
@@ -331,98 +303,125 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Carregar dados iniciais
-    carregarReceitas();
+    await carregarReceitas();
 });
 
 // ===== FUNÇÕES GLOBAIS =====
 
 // Excluir receita
-window.excluirReceita = function(id) {
+window.excluirReceita = async function(id) {
     if (!confirm('Tem certeza que deseja excluir esta receita?')) return;
     
-    let receitas = JSON.parse(localStorage.getItem('receitas')) || [];
-    const receita = receitas.find(r => r.id === id);
+    const { data: receita, error: findError } = await supabase
+        .from('receitas')
+        .select('*')
+        .eq('id', id)
+        .single();
     
     if (receita) {
-        // Remover valor do banco
-        let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
-        bancos = bancos.map(b => {
-            if (b.nome === receita.banco) {
-                b.saldo = (b.saldo || 0) - receita.valor;
-            }
-            return b;
-        });
-        localStorage.setItem('bancos', JSON.stringify(bancos));
+        await atualizarSaldoBancoSupabase(receita.banco, receita.valor, 'remover');
     }
     
-    receitas = receitas.filter(r => r.id !== id);
-    localStorage.setItem('receitas', JSON.stringify(receitas));
+    const { error } = await supabase
+        .from('receitas')
+        .delete()
+        .eq('id', id);
+    
+    if (error) {
+        alert('❌ Erro ao excluir receita: ' + error.message);
+        return;
+    }
     
     location.reload();
 }
 
-// Editar receita
-window.editarReceita = function(id) {
-    if (!confirm('Deseja editar esta receita?')) return;
-    
-    let receitas = JSON.parse(localStorage.getItem('receitas')) || [];
-    const receita = receitas.find(r => r.id === id);
-    
-    if (receita) {
-        // Preenche formulário
-        document.getElementById('descReceita').value = receita.descricao;
-        document.getElementById('valorReceita').value = receita.valor;
-        document.getElementById('dataReceita').value = receita.data;
-        document.getElementById('categoriaReceita').value = receita.categoria;
-        document.getElementById('bancoReceita').value = receita.banco;
-        document.getElementById('receitaFixa').checked = receita.fixa;
-        
-        // Remove valor antigo do banco
-        let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
-        bancos = bancos.map(b => {
-            if (b.nome === receita.banco) {
-                b.saldo = (b.saldo || 0) - receita.valor;
-            }
-            return b;
-        });
-        localStorage.setItem('bancos', JSON.stringify(bancos));
-        
-        // Remove receita antiga
-        const novasReceitas = receitas.filter(r => r.id !== id);
-        localStorage.setItem('receitas', JSON.stringify(novasReceitas));
-        
-        // Muda texto do botão
-        const btn = document.querySelector('#formReceita button[type="submit"]');
-        btn.textContent = '✏️ Atualizar receita';
-        
-        sessionStorage.setItem('editandoReceitaId', id);
-        document.getElementById('formReceita').scrollIntoView({ behavior: 'smooth' });
+// Função auxiliar para atualizar saldo (usada por exclusão)
+async function atualizarSaldoBancoSupabase(nomeBanco, valor, operacao) {
+    const { data: bancos } = await supabase.from('bancos').select('*');
+    for (const banco of bancos) {
+        if (banco.nome.toLowerCase().trim() === nomeBanco.toLowerCase().trim()) {
+            const novoSaldo = operacao === 'adicionar' 
+                ? (banco.saldo || 0) + valor 
+                : (banco.saldo || 0) - valor;
+            await supabase.from('bancos').update({ saldo: novoSaldo }).eq('id', banco.id);
+            break;
+        }
     }
 }
 
+// Editar receita
+window.editarReceita = async function(id) {
+    if (!confirm('Deseja editar esta receita?')) return;
+    
+    const { data: receita, error } = await supabase
+        .from('receitas')
+        .select('*')
+        .eq('id', id)
+        .single();
+    
+    if (error || !receita) {
+        alert('❌ Receita não encontrada!');
+        return;
+    }
+    
+    document.getElementById('descReceita').value = receita.descricao;
+    document.getElementById('valorReceita').value = receita.valor;
+    document.getElementById('dataReceita').value = receita.data;
+    document.getElementById('categoriaReceita').value = receita.categoria;
+    document.getElementById('bancoReceita').value = receita.banco;
+    document.getElementById('receitaFixa').checked = receita.fixa;
+    
+    // Remove valor antigo do banco
+    await atualizarSaldoBancoSupabase(receita.banco, receita.valor, 'remover');
+    
+    // Remove receita antiga
+    await supabase.from('receitas').delete().eq('id', id);
+    
+    const btn = document.querySelector('#formReceita button[type="submit"]');
+    btn.textContent = '✏️ Atualizar receita';
+    
+    sessionStorage.setItem('editandoReceitaId', id);
+    document.getElementById('formReceita').scrollIntoView({ behavior: 'smooth' });
+}
+
 // Aplicar filtros
-window.aplicarFiltros = function() {
+window.aplicarFiltros = async function() {
     const mes = document.getElementById('filtroMes').value;
     const ano = document.getElementById('filtroAno').value;
     const categoria = document.getElementById('filtroCategoria').value;
     
-    const receitas = JSON.parse(localStorage.getItem('receitas')) || [];
+    let query = supabase.from('receitas').select('*');
+    
+    if (mes !== 'todos') {
+        // Filtro por mês é mais complexo, faremos no frontend
+    }
+    
+    const { data: receitas, error } = await query;
+    if (error) return;
     
     const receitasFiltradas = receitas.filter(receita => {
         const data = new Date(receita.data);
         const filtroMes = mes === 'todos' || (data.getMonth() + 1) == mes;
         const filtroAno = data.getFullYear() == ano;
         const filtroCategoria = categoria === 'todas' || receita.categoria === categoria;
-        
         return filtroMes && filtroAno && filtroCategoria;
     });
     
-    // Atualizar lista com resultados
     const listaReceitas = document.getElementById('listaReceitas');
     if (!listaReceitas) return;
     
     listaReceitas.innerHTML = '';
+    
+    if (receitasFiltradas.length === 0) {
+        listaReceitas.innerHTML = `
+            <div class="lista-item">
+                <span colspan="6" style="text-align: center; color: #888;">
+                    Nenhuma receita encontrada com os filtros selecionados
+                </span>
+            </div>
+        `;
+        return;
+    }
     
     receitasFiltradas.forEach(receita => {
         const item = document.createElement('div');
@@ -440,23 +439,14 @@ window.aplicarFiltros = function() {
         `;
         listaReceitas.appendChild(item);
     });
-
-    // No final de aplicarFiltros, depois do forEach
-    if (receitasFiltradas.length === 0) {
-        listaReceitas.innerHTML = `
-            <div class="lista-item">
-                <span colspan="6" style="text-align: center; color: #888;">
-                    Nenhuma receita encontrada com os filtros selecionados
-                </span>
-            </div>
-        `;
-    }
 }
 
+// Atualizar anos do filtro
 function atualizarAnosFiltro() {
     const selectAno = document.getElementById('filtroAno');
-    const anos = new Set();
+    if (!selectAno) return;
     
+    const anos = new Set();
     receitas.forEach(r => {
         const ano = new Date(r.data).getFullYear();
         anos.add(ano);
