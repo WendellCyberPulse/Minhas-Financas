@@ -41,7 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span>${formatarMoeda(usado)}</span>
                 <span>${formatarMoeda(disponivel)}</span>
                 <span>Dia ${cartao.vencimento}</span>
-                <span>
+               <span>
+                    <button class="btn-pagar-fatura" onclick="pagarFatura(${cartao.id})" data-tooltip="Pagar fatura">💰 Pagar Fatura</button>
                     <button class="btn-editar" onclick="editarCartao(${cartao.id})">✏️</button>
                     <button class="btn-excluir" onclick="excluirCartao(${cartao.id})">🗑️</button>
                 </span>
@@ -218,4 +219,83 @@ window.editarCartao = function(id) {
     } else {
         console.error("Cartão não encontrado:", id);
     }
+}
+
+// ===== FUNÇÃO PARA PAGAR FATURA DO CARTÃO =====
+window.pagarFatura = function(id) {
+    let cartoes = JSON.parse(localStorage.getItem('cartoes')) || [];
+    const cartao = cartoes.find(c => c.id === id);
+    
+    if (!cartao || cartao.usado === 0) {
+        alert('❌ Este cartão não tem fatura pendente!');
+        return;
+    }
+    
+    const valorFatura = cartao.usado;
+    
+    if (!confirm(`💰 Pagar fatura de ${formatarMoeda(valorFatura)} do cartão ${cartao.nome}?`)) return;
+    
+    // Buscar bancos disponíveis
+    let bancos = JSON.parse(localStorage.getItem('bancos')) || [];
+    
+    if (bancos.length === 0) {
+        alert('❌ Nenhum banco cadastrado para pagar a fatura!');
+        return;
+    }
+    
+    // Criar select para escolher o banco
+    const nomesBancos = bancos.map(b => b.nome).join(', ');
+    const bancoEscolhido = prompt(`Escolha o banco para pagar a fatura:\nBancos disponíveis: ${nomesBancos}\n\nDigite o nome do banco:`);
+    
+    if (!bancoEscolhido) return;
+    
+    const bancoSelecionado = bancos.find(b => b.nome.toLowerCase().trim() === bancoEscolhido.toLowerCase().trim());
+    
+    if (!bancoSelecionado) {
+        alert('❌ Banco não encontrado!');
+        return;
+    }
+    
+    if (bancoSelecionado.saldo < valorFatura) {
+        if (!confirm(`⚠️ Saldo insuficiente! Banco ${bancoSelecionado.nome} tem apenas ${formatarMoeda(bancoSelecionado.saldo)}. Deseja pagar mesmo assim (ficará negativo)?`)) {
+            return;
+        }
+    }
+    
+    // 1. REMOVER valor do banco
+    bancos = bancos.map(b => {
+        if (b.id === bancoSelecionado.id) {
+            b.saldo = (b.saldo || 0) - valorFatura;
+        }
+        return b;
+    });
+    localStorage.setItem('bancos', JSON.stringify(bancos));
+    
+    // 2. ZERAR usado do cartão
+    cartoes = cartoes.map(c => {
+        if (c.id === id) {
+            c.usado = 0;
+        }
+        return c;
+    });
+    localStorage.setItem('cartoes', JSON.stringify(cartoes));
+    
+    // 3. REGISTRAR como despesa (opcional)
+    let despesas = JSON.parse(localStorage.getItem('despesas')) || [];
+    const novaDespesa = {
+        id: Date.now(),
+        tipo: 'individual',
+        descricao: `Pagamento fatura ${cartao.nome}`,
+        valor: valorFatura,
+        data: new Date().toISOString().split('T')[0],
+        categoria: 'fatura_cartao',
+        pagamento: 'debito',
+        banco: bancoSelecionado.nome,
+        paga: true
+    };
+    despesas.push(novaDespesa);
+    localStorage.setItem('despesas', JSON.stringify(despesas));
+    
+    alert(`✅ Fatura de ${formatarMoeda(valorFatura)} paga com sucesso!`);
+    location.reload();
 }
