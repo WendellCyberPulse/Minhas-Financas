@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     console.log("✅ Inicializando cartões com Supabase...");
     
-    // Verificar se o cliente Supabase está disponível
     if (!window.supabaseClient) {
         console.error("❌ Supabase client não disponível!");
         alert("Erro de conexão com o banco de dados.");
@@ -21,11 +20,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const disponivelElement = document.getElementById('disponivel');
     const totalCartoesElement = document.getElementById('totalCartoes');
 
-    // ===== FUNÇÃO PARA ATUALIZAR LISTA =====
     async function atualizarListaCartoes() {
         if (!listaCartoes) return;
         
-        // Buscar cartões do Supabase
         const { data: cartoes, error } = await window.supabaseClient
             .from('cartoes')
             .select('*')
@@ -85,7 +82,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (totalCartoesElement) totalCartoesElement.textContent = cartoes.length;
     }
 
-    // ===== FUNÇÃO PARA CADASTRAR CARTÃO =====
     async function cadastrarCartao(evento) {
         evento.preventDefault();
         
@@ -99,7 +95,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
-        // Pegar usuário logado
         const { data: { user } } = await window.supabaseClient.auth.getUser();
         if (!user) {
             alert('❌ Você precisa estar logado!');
@@ -109,15 +104,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const editandoId = sessionStorage.getItem('editandoCartaoId');
         
         if (editandoId) {
-            // EDIÇÃO
             const { error } = await window.supabaseClient
                 .from('cartoes')
-                .update({
-                    nome: nome,
-                    bandeira: bandeira,
-                    limite: limite,
-                    vencimento: vencimento
-                })
+                .update({ nome, bandeira, limite, vencimento })
                 .eq('id', parseInt(editandoId));
             
             if (error) {
@@ -126,22 +115,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             
             sessionStorage.removeItem('editandoCartaoId');
-            
             const btn = document.querySelector('#formCartao button[type="submit"]');
             btn.textContent = '💾 Salvar cartão';
-            
             console.log('Cartão atualizado!');
             
         } else {
-            // CADASTRO NOVO
             const { error } = await window.supabaseClient
                 .from('cartoes')
                 .insert([{
                     id: Date.now(),
-                    nome: nome,
-                    bandeira: bandeira,
-                    limite: limite,
-                    vencimento: vencimento,
+                    nome, bandeira, limite, vencimento,
                     usado: 0,
                     user_id: user.id
                 }]);
@@ -150,11 +133,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('❌ Erro ao cadastrar cartão: ' + error.message);
                 return;
             }
-            
             console.log('Cartão cadastrado!');
         }
         
-        // Limpa formulário e atualiza lista
         document.getElementById('nomeCartao').value = '';
         document.getElementById('bandeira').value = 'visa';
         document.getElementById('limiteTotal').value = '';
@@ -163,7 +144,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         await atualizarListaCartoes();
     }
 
-    // Cancelar edição
     window.cancelarEdicaoCartao = function() {
         if (confirm('Cancelar edição?')) {
             sessionStorage.removeItem('editandoCartaoId');
@@ -181,24 +161,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // ===== FUNÇÕES GLOBAIS =====
 
-// Excluir cartão
 window.excluirCartao = async function(id) {
     if (confirm('Tem certeza que deseja excluir este cartão?')) {
         const { error } = await window.supabaseClient
             .from('cartoes')
-            .delete()
+                       .delete()
             .eq('id', id);
         
         if (error) {
             alert('❌ Erro ao excluir cartão: ' + error.message);
             return;
         }
-        
         location.reload();
     }
 }
 
-// Editar cartão
 window.editarCartao = async function(id) {
     if (!confirm('Deseja editar este cartão?')) return;
     
@@ -218,7 +195,6 @@ window.editarCartao = async function(id) {
     document.getElementById('limiteTotal').value = cartao.limite;
     document.getElementById('vencimento').value = cartao.vencimento;
     
-    // Remover o cartão antigo (será recriado ao salvar)
     await window.supabaseClient.from('cartoes').delete().eq('id', id);
     
     const btn = document.querySelector('#formCartao button[type="submit"]');
@@ -228,7 +204,7 @@ window.editarCartao = async function(id) {
     document.getElementById('formCartao').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Pagar fatura
+// ===== FUNÇÃO DE PAGAMENTO DE FATURA COM OPÇÕES =====
 window.pagarFatura = async function(id) {
     // Buscar cartão
     const { data: cartao, error: errCartao } = await window.supabaseClient
@@ -237,72 +213,169 @@ window.pagarFatura = async function(id) {
         .eq('id', id)
         .single();
     
-    if (error || !cartao || cartao.usado === 0) {
+    if (errCartao || !cartao || cartao.usado === 0) {
         alert('❌ Este cartão não tem fatura pendente!');
         return;
     }
     
-    const valorFatura = cartao.usado;
-    
-    if (!confirm(`💰 Pagar fatura de ${formatarMoeda(valorFatura)} do cartão ${cartao.nome}?`)) return;
+    const valorTotalFatura = cartao.usado;
     
     // Buscar bancos
-    const { data: bancos, error: errBancos } = await window.supabaseClient
-        .from('bancos')
-        .select('*');
+    const { data: bancos } = await window.supabaseClient.from('bancos').select('*');
     
-    if (errBancos || bancos.length === 0) {
+    if (!bancos || bancos.length === 0) {
         alert('❌ Nenhum banco cadastrado!');
         return;
     }
     
-    const nomesBancos = bancos.map(b => b.nome).join(', ');
-    const bancoEscolhido = prompt(`Escolha o banco:\n${nomesBancos}\n\nDigite o nome:`);
+    // Criar modal
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
     
-    if (!bancoEscolhido) return;
+    modal.innerHTML = `
+        <div style="background: #2d2d2d; padding: 30px; border-radius: 10px; max-width: 400px; width: 90%;">
+            <h3 style="color: #fff; margin-top: 0;">💳 Pagar Fatura</h3>
+            <p><strong>Cartão:</strong> ${cartao.nome}</p>
+            <p><strong>Valor total da fatura:</strong> ${formatarMoeda(valorTotalFatura)}</p>
+            
+            <div style="margin: 20px 0;">
+                <label style="color: #fff;">Opção de pagamento:</label><br>
+                <select id="opcaoPagamento" style="width: 100%; padding: 10px; margin: 10px 0; background: #3d3d3d; color: #fff; border: 1px solid #4a4a4a; border-radius: 5px;">
+                    <option value="total">💰 Pagar valor total (${formatarMoeda(valorTotalFatura)})</option>
+                    <option value="parcial">📊 Pagar valor parcial</option>
+                    <option value="especifico">✏️ Digitar valor específico</option>
+                </select>
+            </div>
+            
+            <div id="campoValorParcial" style="display: none; margin: 20px 0;">
+                <label style="color: #fff;">Selecione o valor:</label><br>
+                <select id="valorParcial" style="width: 100%; padding: 10px; background: #3d3d3d; color: #fff; border: 1px solid #4a4a4a; border-radius: 5px;">
+                    <option value="50">R$ 50,00</option>
+                    <option value="100">R$ 100,00</option>
+                    <option value="200">R$ 200,00</option>
+                    <option value="300">R$ 300,00</option>
+                    <option value="400">R$ 400,00</option>
+                    <option value="500">R$ 500,00</option>
+                    <option value="1000">R$ 1.000,00</option>
+                </select>
+            </div>
+            
+            <div id="campoValorEspecifico" style="display: none; margin: 20px 0;">
+                <label style="color: #fff;">Digite o valor (R$):</label><br>
+                <input type="number" id="valorEspecifico" step="0.01" placeholder="0,00" style="width: 100%; padding: 10px; background: #3d3d3d; color: #fff; border: 1px solid #4a4a4a; border-radius: 5px;">
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <label style="color: #fff;">Selecionar banco para débito:</label><br>
+                <select id="bancoPagamento" style="width: 100%; padding: 10px; margin-top: 10px; background: #3d3d3d; color: #fff; border: 1px solid #4a4a4a; border-radius: 5px;">
+                    ${bancos.map(b => `<option value="${b.nome}">${b.nome} (${formatarMoeda(b.saldo)})</option>`).join('')}
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="btnConfirmarPagamento" style="flex: 1; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">✅ Confirmar</button>
+                <button id="btnCancelarPagamento" style="flex: 1; padding: 10px; background: #af4c4c; color: white; border: none; border-radius: 5px; cursor: pointer;">❌ Cancelar</button>
+            </div>
+        </div>
+    `;
     
-    const bancoSelecionado = bancos.find(b => b.nome.toLowerCase().trim() === bancoEscolhido.toLowerCase().trim());
+    document.body.appendChild(modal);
     
-    if (!bancoSelecionado) {
-        alert('❌ Banco não encontrado!');
-        return;
-    }
+    const opcaoSelect = modal.querySelector('#opcaoPagamento');
+    const campoParcial = modal.querySelector('#campoValorParcial');
+    const campoEspecifico = modal.querySelector('#campoValorEspecifico');
+    const selectBanco = modal.querySelector('#bancoPagamento');
     
-    if (bancoSelecionado.saldo < valorFatura) {
-        if (!confirm(`⚠️ Saldo insuficiente! Continuar?`)) return;
-    }
+    opcaoSelect.addEventListener('change', function() {
+        campoParcial.style.display = this.value === 'parcial' ? 'block' : 'none';
+        campoEspecifico.style.display = this.value === 'especifico' ? 'block' : 'none';
+    });
     
-    // Pegar usuário logado
-    const { data: { user } } = await window.supabaseClient.auth.getUser();
+    modal.querySelector('#btnConfirmarPagamento').onclick = async () => {
+        const opcao = opcaoSelect.value;
+        let valorPagar = 0;
+        
+        if (opcao === 'total') {
+            valorPagar = valorTotalFatura;
+        } else if (opcao === 'parcial') {
+            valorPagar = parseFloat(modal.querySelector('#valorParcial').value);
+        } else {
+            valorPagar = parseFloat(modal.querySelector('#valorEspecifico').value) || 0;
+        }
+        
+        if (valorPagar <= 0) {
+            alert('❌ Valor inválido!');
+            return;
+        }
+        
+        if (valorPagar > valorTotalFatura) {
+            alert(`⚠️ Valor excede a fatura! Máximo: ${formatarMoeda(valorTotalFatura)}`);
+            return;
+        }
+        
+        const bancoEscolhido = selectBanco.value;
+        if (!bancoEscolhido) return;
+        
+        const bancoSelecionado = bancos.find(b => b.nome === bancoEscolhido);
+        
+        if (bancoSelecionado.saldo < valorPagar) {
+            if (!confirm(`⚠️ Saldo insuficiente! Banco tem ${formatarMoeda(bancoSelecionado.saldo)}. Continuar?`)) {
+                return;
+            }
+        }
+        
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        
+        // 1. Atualizar saldo do banco
+        await window.supabaseClient
+            .from('bancos')
+            .update({ saldo: bancoSelecionado.saldo - valorPagar })
+            .eq('id', bancoSelecionado.id);
+        
+        // 2. Atualizar usado do cartão
+        const novoUsado = cartao.usado - valorPagar;
+        await window.supabaseClient
+            .from('cartoes')
+            .update({ usado: novoUsado })
+            .eq('id', id);
+        
+        // 3. Registrar despesa do pagamento
+        await window.supabaseClient
+            .from('despesas')
+            .insert([{
+                id: Date.now(),
+                tipo: 'individual',
+                descricao: `Pagamento fatura ${cartao.nome}${opcao !== 'total' ? ` (parcial R$ ${valorPagar.toFixed(2)})` : ''}`,
+                valor: valorPagar,
+                data: new Date().toISOString().split('T')[0],
+                categoria: 'fatura_cartao',
+                pagamento: 'debito',
+                banco: bancoSelecionado.nome,
+                paga: true,
+                user_id: user ? user.id : null
+            }]);
+        
+        modal.remove();
+        
+        if (novoUsado > 0) {
+            alert(`✅ Pagamento de ${formatarMoeda(valorPagar)} realizado!\n💰 Fatura restante: ${formatarMoeda(novoUsado)}`);
+        } else {
+            alert(`✅ Fatura de ${formatarMoeda(valorPagar)} paga com sucesso!`);
+        }
+        
+        location.reload();
+    };
     
-    // 1. Atualizar saldo do banco
-    await window.supabaseClient
-        .from('bancos')
-        .update({ saldo: bancoSelecionado.saldo - valorFatura })
-        .eq('id', bancoSelecionado.id);
-    
-    // 2. Zerar usado do cartão
-    await window.supabaseClient
-        .from('cartoes')
-        .update({ usado: 0 })
-        .eq('id', id);
-    
-    // 3. Registrar despesa
-    await window.supabaseClient
-        .from('despesas')
-        .insert([{
-            id: Date.now(),
-            tipo: 'individual',
-            descricao: `Pagamento fatura ${cartao.nome}`,
-            valor: valorFatura,
-            data: new Date().toISOString().split('T')[0],
-            categoria: 'fatura_cartao',
-            pagamento: 'debito',
-            banco: bancoSelecionado.nome,
-            paga: true,
-            user_id: user ? user.id : null
-        }]);
-    
-    alert(`✅ Fatura de ${formatarMoeda(valorFatura)} paga!`);
-    location.reload();
+    modal.querySelector('#btnCancelarPagamento').onclick = () => {
+        modal.remove();
+    };
 }
